@@ -18,10 +18,10 @@
 
 package org.apache.flink.streaming.connectors.dynamodb;
 
-import com.amazonaws.services.dynamodbv2.model.WriteRequest;
-
 import org.apache.flink.api.common.functions.Function;
 import org.apache.flink.api.common.functions.RuntimeContext;
+
+import com.amazonaws.services.dynamodbv2.model.WriteRequest;
 
 import java.io.Serializable;
 
@@ -62,5 +62,4 @@ public interface DynamoDBSinkFunction<IN> extends Serializable, Function {
      * @param writer DynamoDB Writer that {@code WriteRequest} should be added to
      */
     void process(IN value, RuntimeContext context, DynamoDBWriter writer);
-
 }

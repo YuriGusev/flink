@@ -18,9 +18,6 @@
 
 package org.apache.flink.streaming.connectors.dynamodb;
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.model.WriteRequest;
-
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
@@ -28,14 +25,13 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
-
-import org.apache.flink.shaded.guava18.com.google.common.util.concurrent.FutureCallback;
-
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.connectors.dynamodb.util.TimeoutLatch;
 import org.apache.flink.util.InstantiationUtil;
 
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.model.WriteRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,20 +42,19 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
- * DynamoDB sink that writes multiple {@link WriteRequest WriteRequests} to DynamoDB
- * for each incoming element.
+ * DynamoDB sink that writes multiple {@link WriteRequest WriteRequests} to DynamoDB for each
+ * incoming element.
  *
- * <p>The sink internally uses an {@link AmazonDynamoDB} to
- * communicate with DynamoDB. The sink will fail if no DynamoDB can be connected to using the provided
- * region and endpoint passed to the constructor.
+ * <p>The sink internally uses an {@link AmazonDynamoDB} to communicate with DynamoDB. The sink will
+ * fail if no DynamoDB can be connected to using the provided region and endpoint passed to the
+ * constructor.
  *
- * <p>You also have to provide a {@link DynamoDBSinkFunction}. This is used to create a
- * {@link WriteRequest WriteRequest} for each incoming element. See the class level documentation
- * of {@link DynamoDBSinkFunction} for an example.
+ * <p>You also have to provide a {@link DynamoDBSinkFunction}. This is used to create a {@link
+ * WriteRequest WriteRequest} for each incoming element. See the class level documentation of {@link
+ * DynamoDBSinkFunction} for an example.
  *
  * @param <IN> Type of the elements handled by this sink
  */
-
 @PublicEvolving
 public class DynamoDBSink<IN> extends RichSinkFunction<IN> implements CheckpointedFunction {
 
@@ -74,36 +69,33 @@ public class DynamoDBSink<IN> extends RichSinkFunction<IN> implements Checkpoint
     private static final Logger LOG = LoggerFactory.getLogger(DynamoDBSink.class);
 
     /**
-     * Properties to parametrize settings such as AWS service region, access key etc.
-     * These properties would also be forwarded when creating the DynamoDB client
+     * Properties to parametrize settings such as AWS service region, access key etc. These
+     * properties would also be forwarded when creating the DynamoDB client
      */
     private final Properties configProps;
 
     /**
-     * The function that is used to construct a {@link WriteRequest WriteRequest} from
-     * each incoming element.
+     * The function that is used to construct a {@link WriteRequest WriteRequest} from each incoming
+     * element.
      */
     private transient DynamoDBSinkFunction<IN> dynamoDBSinkFunction;
 
-    /** A flag controlling the error behavior of the sink */
-    private boolean failOnError;
+    /** A flag controlling the error behavior of the sink. */
+    private boolean failOnError = true;
 
-    /** Maximum length of the internal record queue before backpressuring */
+    /** Maximum length of the internal record queue before backpressuring. */
     private int queueLimit = Integer.MAX_VALUE;
 
-    /** Counts how often we have to wait for KPL because we are above the queue limit */
+    /** Counts how often we have to wait for KPL because we are above the queue limit. */
     private transient Counter backpressureCycles;
 
-    /** Backpressuring waits for this latch, triggered by record callback */
+    /** Backpressuring waits for this latch, triggered by record callback. */
     private transient volatile TimeoutLatch backpressureLatch;
 
-    /* Callback handling failures */
-    private transient FutureCallback<BatchResponse> callback;
-
-    /** Field for async exception */
+    /** Field for async exception. */
     private transient volatile Throwable thrownException;
 
-    /** DynamoDB client */
+    /** DynamoDB client. */
     private transient AmazonDynamoDB client;
 
     /**
@@ -114,12 +106,11 @@ public class DynamoDBSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 
     private transient DynamoDBProducer producer;
 
-    public DynamoDBSink(DynamoDBSinkFunction<IN> dynamoDBSinkFunction,
-                        Properties configProps) {
+    public DynamoDBSink(DynamoDBSinkFunction<IN> dynamoDBSinkFunction, Properties configProps) {
         checkNotNull(configProps, "configProps can not be null");
         this.configProps = configProps;
         checkNotNull(dynamoDBSinkFunction, "DynamoDB sink function cannot be null");
-
+        this.dynamoDBSinkFunction = dynamoDBSinkFunction;
         // we eagerly check if the user-provided sink function is serializable;
         // otherwise, if it isn't serializable, users will merely get a non-informative error
         // message
@@ -163,6 +154,7 @@ public class DynamoDBSink<IN> extends RichSinkFunction<IN> implements Checkpoint
         this.backpressureCycles = dynamoDBSinkMetricGroup.counter(METRIC_BACKPRESSURE_CYCLES);
         dynamoDBSinkMetricGroup.gauge(
                 METRIC_OUTSTANDING_RECORDS_COUNT, producer::getOutstandingRecordsCount);
+        LOG.info("Started DynamoDB sink");
     }
 
     @Override
@@ -218,7 +210,7 @@ public class DynamoDBSink<IN> extends RichSinkFunction<IN> implements Checkpoint
      */
     @VisibleForTesting
     protected DynamoDBProducer buildDynamoDBProducer(DynamoDBProducer.Listener listener) {
-        return new DynamoDBProducer();
+        return new DynamoDBProducer(listener);
     }
 
     /** Check if there are any asynchronous exceptions. If so, rethrow the exception. */
@@ -251,9 +243,9 @@ public class DynamoDBSink<IN> extends RichSinkFunction<IN> implements Checkpoint
     }
 
     /**
-     * If the internal queue of the {@link DynamoDBProducer} gets too long, flush some of the records
-     * until we are below the limit again. We don't want to flush _all_ records at this point since
-     * that would break record aggregation.
+     * If the internal queue of the {@link DynamoDBProducer} gets too long, flush some of the
+     * records until we are below the limit again. We don't want to flush _all_ records at this
+     * point since that would break record aggregation.
      *
      * @return boolean whether flushing occurred or not
      */
@@ -277,9 +269,7 @@ public class DynamoDBSink<IN> extends RichSinkFunction<IN> implements Checkpoint
         return attempt > 0;
     }
 
-    /**
-     * releases the block on flushing if an interruption occurred.
-     */
+    /** releases the block on flushing if an interruption occurred. */
     private void flushSync() throws Exception {
         while (producer.getOutstandingRecordsCount() > 0) {
             producer.flush();
@@ -295,19 +285,16 @@ public class DynamoDBSink<IN> extends RichSinkFunction<IN> implements Checkpoint
     private class DynamoDBProducerListener implements DynamoDBProducer.Listener {
 
         @Override
-        public void beforeBulk(long executionId, BatchRequest request) {
-
-        }
+        public void beforeBatch(long executionId, BatchRequest request) {}
 
         @Override
-        public void afterBulk(long executionId, BatchRequest request, BatchResponse response) {
+        public void afterBatch(long executionId, BatchRequest request, BatchResponse response) {
             backpressureLatch.trigger();
             if (!response.isSuccessful()) {
                 if (failOnError) {
                     // only remember the first thrown exception
                     if (thrownException == null) {
-                        thrownException =
-                                new RuntimeException("Batch insert failed");
+                        thrownException = new RuntimeException("Batch insert failed");
                     }
                 } else {
                     LOG.warn("Batch insert failed");
@@ -316,7 +303,7 @@ public class DynamoDBSink<IN> extends RichSinkFunction<IN> implements Checkpoint
         }
 
         @Override
-        public void afterBulk(long executionId, BatchRequest request, Throwable failure) {
+        public void afterBatch(long executionId, BatchRequest request, Throwable failure) {
             backpressureLatch.trigger();
             if (failOnError) {
                 thrownException = failure;
@@ -325,5 +312,4 @@ public class DynamoDBSink<IN> extends RichSinkFunction<IN> implements Checkpoint
             }
         }
     }
-
 }

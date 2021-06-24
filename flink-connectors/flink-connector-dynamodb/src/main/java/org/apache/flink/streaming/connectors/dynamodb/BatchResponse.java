@@ -23,10 +23,9 @@ import com.amazonaws.services.dynamodbv2.model.BatchWriteItemRequest;
 import java.util.List;
 
 /**
- * The result of a {@link com.amazonaws.services.dynamodbv2.AmazonDynamoDB#batchWriteItem(BatchWriteItemRequest)}
- * operation.
- * A list of {@link Attempt}s is also provided with details about each
- * attempt made.
+ * The result of a {@link
+ * com.amazonaws.services.dynamodbv2.AmazonDynamoDB#batchWriteItem(BatchWriteItemRequest)}
+ * operation. A list of {@link Attempt}s is also provided with details about each attempt made.
  *
  * @see Attempt
  */
@@ -41,18 +40,14 @@ public class BatchResponse {
         this.batchRequestId = batchRequestId;
     }
 
-    /**
-     *
-     * @return List of {@link Attempt}s, in the order they were made.
-     */
+    /** @return List of {@link Attempt}s, in the order they were made. */
     public List<Attempt> getAttempts() {
         return this.attempts;
     }
 
     /**
-     *
-     * @return Whether the record put was successful. If true, then the record
-     *         has been confirmed by the backend.
+     * @return Whether the record put was successful. If true, then the record has been confirmed by
+     *     the backend.
      */
     public boolean isSuccessful() {
         return successful;
@@ -61,5 +56,4 @@ public class BatchResponse {
     public Long getBatchRequestId() {
         return batchRequestId;
     }
-
 }

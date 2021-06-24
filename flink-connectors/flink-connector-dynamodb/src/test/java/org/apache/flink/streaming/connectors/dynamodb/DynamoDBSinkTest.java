@@ -1,98 +1,74 @@
 package org.apache.flink.streaming.connectors.dynamodb;
 
 import org.apache.flink.api.common.functions.RuntimeContext;
-import org.apache.flink.api.common.serialization.SerializationSchema;
-import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.api.common.time.Deadline;
 import org.apache.flink.core.testutils.CheckedThread;
 import org.apache.flink.core.testutils.MultiShotLatch;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.operators.StreamSink;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
-import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.streaming.util.OneInputStreamOperatorTestHarness;
 import org.apache.flink.util.InstantiationUtil;
 
+import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import com.amazonaws.services.dynamodbv2.model.PutRequest;
+import com.amazonaws.services.dynamodbv2.model.WriteRequest;
 import org.junit.Assert;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import java.nio.ByteBuffer;
 import java.time.Duration;
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
-import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
+/** Suite of {@link DynamoDBSink} tests. */
 public class DynamoDBSinkTest {
 
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
-
-    // ----------------------------------------------------------------------
-    // Tests to verify serializability
-    // ----------------------------------------------------------------------
-
-
     @Test
-    public void testProducerIsSerializable() {
-        DynamoDBSink<String> producer =
-                new DynamoDBSink<>(
-                        new DynamoDBSinkFunction<String>() {
-                            @Override
-                            public void process(
-                                    String value,
-                                    RuntimeContext context,
-                                    DynamoDBWriter writer) {
-
-                            }
-                        }, getStandardProperties());
-        assertTrue(InstantiationUtil.isSerializable(producer));
+    public void testSinkIsSerializable() {
+        final DummyDynamoDBSink<String> sink =
+                new DummyDynamoDBSink<>(new DummySinkFunction(), new Properties());
+        assertTrue(InstantiationUtil.isSerializable(sink));
     }
 
-    // ----------------------------------------------------------------------
-    // Tests to verify at-least-once guarantee
-    // ----------------------------------------------------------------------
-
     /**
-     * Test ensuring that if an invoke call happens right after an async exception is caught, it
-     * should be rethrown.
+     * Tests that any batch failure in the listener callbacks is rethrown on an immediately
+     * following invoke call.
      */
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     @Test
-    public void testAsyncErrorRethrownOnInvoke() throws Throwable {
-        final DummyFlinkKinesisProducer<String> producer =
-                new DummyFlinkKinesisProducer<>(new SimpleStringSchema());
+    public void testBatchFailureRethrownOnInvoke() throws Throwable {
+        final DummyDynamoDBSink<String> sink =
+                new DummyDynamoDBSink<>(new DummySinkFunction(), new Properties());
 
-        OneInputStreamOperatorTestHarness<String, Object> testHarness =
-                new OneInputStreamOperatorTestHarness<>(new StreamSink<>(producer));
+        final OneInputStreamOperatorTestHarness<String, Object> testHarness =
+                new OneInputStreamOperatorTestHarness<>(new StreamSink<>(sink));
 
         testHarness.open();
 
-        testHarness.processElement(new StreamRecord<>("msg-1"));
+        // setup the next batch request
+        testHarness.processElement(new StreamRecord<>("msg"));
+        verify(sink.getMockBatchProcessor(), times(1)).add(anyMap());
 
-        producer.getPendingRecordFutures()
-                .get(0)
-                .setException(new Exception("artificial async exception"));
-
+        // manually execute the next batch request and complete with an exception
+        sink.manualCompletePendingRequest(new Exception("artificial failure for batch request"));
         try {
-            testHarness.processElement(new StreamRecord<>("msg-2"));
+            testHarness.processElement(new StreamRecord<>("next msg"));
         } catch (Exception e) {
-            // the next invoke should rethrow the async exception
+            // the invoke should have failed with the batch request failure
             Assert.assertTrue(
-                    ExceptionUtils.findThrowableWithMessage(e, "artificial async exception")
-                            .isPresent());
+                    e.getCause().getMessage().contains("artificial failure for batch request"));
 
             // test succeeded
             return;
@@ -102,33 +78,34 @@ public class DynamoDBSinkTest {
     }
 
     /**
-     * Test ensuring that if a snapshot call happens right after an async exception is caught, it
-     * should be rethrown.
+     * Tests that any batch failure in the listener callbacks is rethrown on an immediately
+     * following checkpoint.
      */
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     @Test
-    public void testAsyncErrorRethrownOnCheckpoint() throws Throwable {
-        final DummyFlinkKinesisProducer<String> producer =
-                new DummyFlinkKinesisProducer<>(new SimpleStringSchema());
+    public void testBatchFailureRethrownOnCheckpoint() throws Throwable {
+        final DummyDynamoDBSink<String> sink =
+                new DummyDynamoDBSink<>(new DummySinkFunction(), new Properties());
 
-        OneInputStreamOperatorTestHarness<String, Object> testHarness =
-                new OneInputStreamOperatorTestHarness<>(new StreamSink<>(producer));
+        final OneInputStreamOperatorTestHarness<String, Object> testHarness =
+                new OneInputStreamOperatorTestHarness<>(new StreamSink<>(sink));
 
         testHarness.open();
 
-        testHarness.processElement(new StreamRecord<>("msg-1"));
-
-        producer.getPendingRecordFutures()
-                .get(0)
-                .setException(new Exception("artificial async exception"));
+        // setup the next batch request
+        testHarness.processElement(new StreamRecord<>("msg"));
+        verify(sink.getMockBatchProcessor(), times(1)).add(anyMap());
+        // manually execute the next batch request and complete with an exception
+        sink.manualCompletePendingRequest(new Exception("artificial failure for batch request"));
 
         try {
-            testHarness.snapshot(123L, 123L);
+            testHarness.snapshot(1L, 1000L);
         } catch (Exception e) {
-            // the next checkpoint should rethrow the async exception
+            // the snapshot should have failed with the batch request failure
             Assert.assertTrue(
-                    ExceptionUtils.findThrowableWithMessage(e, "artificial async exception")
-                            .isPresent());
+                    e.getCause()
+                            .getCause()
+                            .getMessage()
+                            .contains("artificial failure for batch request"));
 
             // test succeeded
             return;
@@ -138,58 +115,87 @@ public class DynamoDBSinkTest {
     }
 
     /**
-     * Test ensuring that if an async exception is caught for one of the flushed requests on
-     * checkpoint, it should be rethrown; we set a timeout because the test will not finish if the
+     * Tests that any batch failure in the listener callbacks is rethrown on an immediately
+     * following close.
+     */
+    @Test
+    public void testBatchFailureRethrownOnClose() throws Throwable {
+        final DummyDynamoDBSink<String> sink =
+                new DummyDynamoDBSink<>(new DummySinkFunction(), new Properties());
+
+        final OneInputStreamOperatorTestHarness<String, Object> testHarness =
+                new OneInputStreamOperatorTestHarness<>(new StreamSink<>(sink));
+
+        testHarness.open();
+
+        // setup the next batch request, and let the whole batch request fail
+        testHarness.processElement(new StreamRecord<>("msg"));
+        verify(sink.getMockBatchProcessor(), times(1)).add(anyMap());
+
+        // manually execute the next batch request
+        sink.manualCompletePendingRequest(new Exception("artificial failure for batch request"));
+
+        try {
+            testHarness.close();
+        } catch (Exception e) {
+            // the snapshot should have failed with the batch request failure
+            Assert.assertTrue(
+                    e.getCause().getMessage().contains("artificial failure for batch request"));
+
+            // test succeeded
+            return;
+        }
+
+        Assert.fail();
+    }
+
+    /**
+     * Tests that any batch failure in the listener callbacks due to flushing on an immediately
+     * following checkpoint is rethrown; we set a timeout because the test will not finish if the
      * logic is broken.
-     *
-     * <p>Note that this test does not test the snapshot method is blocked correctly when there are
-     * pending records. The test for that is covered in testAtLeastOnceProducer.
      */
-    @SuppressWarnings("ResultOfMethodCallIgnored")
-    @Test(timeout = 10000)
-    public void testAsyncErrorRethrownAfterFlush() throws Throwable {
-        final DummyFlinkKinesisProducer<String> producer =
-                new DummyFlinkKinesisProducer<>(new SimpleStringSchema());
+    @Test(timeout = 5000)
+    public void testBatchFailureRethrownOnCheckpointAfterFlush() throws Throwable {
+        final DummyDynamoDBSink<String> sink =
+                new DummyDynamoDBSink<>(new DummySinkFunction(), new Properties());
 
-        OneInputStreamOperatorTestHarness<String, Object> testHarness =
-                new OneInputStreamOperatorTestHarness<>(new StreamSink<>(producer));
+        final OneInputStreamOperatorTestHarness<String, Object> testHarness =
+                new OneInputStreamOperatorTestHarness<>(new StreamSink<>(sink));
 
         testHarness.open();
 
         testHarness.processElement(new StreamRecord<>("msg-1"));
+        verify(sink.getMockBatchProcessor(), times(1)).add(anyMap());
+
+        // manually execute the next batch request
+        sink.manualCompletePendingRequest(null);
+
+        // setup the requests to be flushed in the snapshot
         testHarness.processElement(new StreamRecord<>("msg-2"));
         testHarness.processElement(new StreamRecord<>("msg-3"));
-
-        // only let the first record succeed for now
-        UserRecordResult result = mock(UserRecordResult.class);
-        when(result.isSuccessful()).thenReturn(true);
-        producer.getPendingRecordFutures().get(0).set(result);
+        verify(sink.getMockBatchProcessor(), times(3)).add(anyMap());
 
         CheckedThread snapshotThread =
                 new CheckedThread() {
                     @Override
                     public void go() throws Exception {
-                        // this should block at first, since there are still two pending records
-                        // that needs to be flushed
-                        testHarness.snapshot(123L, 123L);
+                        testHarness.snapshot(1L, 1000L);
                     }
                 };
         snapshotThread.start();
 
-        // let the 2nd message fail with an async exception
-        producer.getPendingRecordFutures()
-                .get(1)
-                .setException(new Exception("artificial async failure for 2nd message"));
-        producer.getPendingRecordFutures().get(2).set(mock(UserRecordResult.class));
+        // for the snapshot-triggered flush, we let the batch request fail completely
+        sink.manualCompletePendingRequest(new Exception("artificial failure for batch request"));
 
         try {
             snapshotThread.sync();
         } catch (Exception e) {
-            // after the flush, the async exception should have been rethrown
+            // the snapshot should have failed with the batch request failure
             Assert.assertTrue(
-                    ExceptionUtils.findThrowableWithMessage(
-                            e, "artificial async failure for 2nd message")
-                            .isPresent());
+                    e.getCause()
+                            .getCause()
+                            .getMessage()
+                            .contains("artificial failure for batch request"));
 
             // test succeeded
             return;
@@ -199,33 +205,29 @@ public class DynamoDBSinkTest {
     }
 
     /**
-     * Test ensuring that the producer is not dropping buffered records; we set a timeout because
-     * the test will not finish if the logic is broken.
+     * Tests that the sink correctly waits for pending requests on checkpoints; we set a timeout
+     * because the test will not finish if the logic is broken.
      */
-    @SuppressWarnings({"unchecked", "ResultOfMethodCallIgnored"})
-    @Test(timeout = 10000)
-    public void testAtLeastOnceProducer() throws Throwable {
-        final DummyFlinkKinesisProducer<String> producer =
-                new DummyFlinkKinesisProducer<>(new SimpleStringSchema());
+    @Test(timeout = 5000)
+    public void testAtLeastOnceSink() throws Throwable {
+        final DummyDynamoDBSink<String> sink =
+                new DummyDynamoDBSink<>(new DummySinkFunction(), new Properties());
 
-        OneInputStreamOperatorTestHarness<String, Object> testHarness =
-                new OneInputStreamOperatorTestHarness<>(new StreamSink<>(producer));
+        final OneInputStreamOperatorTestHarness<String, Object> testHarness =
+                new OneInputStreamOperatorTestHarness<>(new StreamSink<>(sink));
 
         testHarness.open();
 
         testHarness.processElement(new StreamRecord<>("msg-1"));
         testHarness.processElement(new StreamRecord<>("msg-2"));
         testHarness.processElement(new StreamRecord<>("msg-3"));
+        verify(sink.getMockBatchProcessor(), times(3)).add(anyMap());
 
-        // start a thread to perform checkpointing
         CheckedThread snapshotThread =
                 new CheckedThread() {
                     @Override
                     public void go() throws Exception {
-                        // this should block until all records are flushed;
-                        // if the snapshot implementation returns before pending records are
-                        // flushed,
-                        testHarness.snapshot(123L, 123L);
+                        testHarness.snapshot(1L, 1000L);
                     }
                 };
         snapshotThread.start();
@@ -233,26 +235,22 @@ public class DynamoDBSinkTest {
         // before proceeding, make sure that flushing has started and that the snapshot is still
         // blocked;
         // this would block forever if the snapshot didn't perform a flush
-        producer.waitUntilFlushStarted();
+        sink.waitUntilFlushStarted();
+
         Assert.assertTrue(
                 "Snapshot returned before all records were flushed", snapshotThread.isAlive());
 
-        // now, complete the callbacks
-        UserRecordResult result = mock(UserRecordResult.class);
-        when(result.isSuccessful()).thenReturn(true);
-
-        producer.getPendingRecordFutures().get(0).set(result);
+        sink.manualCompletePendingRequest(null);
         Assert.assertTrue(
                 "Snapshot returned before all records were flushed", snapshotThread.isAlive());
 
-        producer.getPendingRecordFutures().get(1).set(result);
+        sink.manualCompletePendingRequest(null);
         Assert.assertTrue(
                 "Snapshot returned before all records were flushed", snapshotThread.isAlive());
 
-        producer.getPendingRecordFutures().get(2).set(result);
+        sink.manualCompletePendingRequest(null);
 
-        // this would fail with an exception if flushing wasn't completed before the snapshot method
-        // returned
+        // the snapshot should finish with no exceptions
         snapshotThread.sync();
 
         testHarness.close();
@@ -263,21 +261,18 @@ public class DynamoDBSinkTest {
      * drops below the limit; we set a timeout because the test will not finish if the logic is
      * broken.
      */
-    @Test(timeout = 10000)
+    @Test(timeout = 5000)
     public void testBackpressure() throws Throwable {
         final Deadline deadline = Deadline.fromNow(Duration.ofSeconds(10));
 
-        final DummyFlinkKinesisProducer<String> producer =
-                new DummyFlinkKinesisProducer<>(new SimpleStringSchema());
-        producer.setQueueLimit(1);
+        final DummyDynamoDBSink<String> sink =
+                new DummyDynamoDBSink<>(new DummySinkFunction(), new Properties());
+        sink.setQueueLimit(1);
 
         OneInputStreamOperatorTestHarness<String, Object> testHarness =
-                new OneInputStreamOperatorTestHarness<>(new StreamSink<>(producer));
+                new OneInputStreamOperatorTestHarness<>(new StreamSink<>(sink));
 
         testHarness.open();
-
-        UserRecordResult result = mock(UserRecordResult.class);
-        when(result.isSuccessful()).thenReturn(true);
 
         CheckedThread msg1 =
                 new CheckedThread() {
@@ -290,8 +285,7 @@ public class DynamoDBSinkTest {
         msg1.trySync(deadline.timeLeftIfAny().toMillis());
         assertFalse("Flush triggered before reaching queue limit", msg1.isAlive());
 
-        // consume msg-1 so that queue is empty again
-        producer.getPendingRecordFutures().get(0).set(result);
+        sink.manualCompletePendingRequest(null);
 
         CheckedThread msg2 =
                 new CheckedThread() {
@@ -318,19 +312,20 @@ public class DynamoDBSinkTest {
 
         assertTrue("Producer should still block, but doesn't", moreElementsThread.isAlive());
 
-        // consume msg-2 from the queue, leaving msg-3 in the queue and msg-4 blocked
-        while (producer.getPendingRecordFutures().size() < 2) {
+        while (sink.getSize() < 2) {
             Thread.sleep(50);
         }
-        producer.getPendingRecordFutures().get(1).set(result);
 
-        assertTrue("Producer should still block, but doesn't", moreElementsThread.isAlive());
+        sink.manualCompletePendingRequest(null);
+
+        assertTrue("Sink should still block, but doesn't", moreElementsThread.isAlive());
 
         // consume msg-3, blocked msg-4 can be inserted into the queue and block is released
-        while (producer.getPendingRecordFutures().size() < 3) {
+        while (sink.getSize() < 3) {
             Thread.sleep(50);
         }
-        producer.getPendingRecordFutures().get(2).set(result);
+
+        sink.manualCompletePendingRequest(null);
 
         moreElementsThread.trySync(deadline.timeLeftIfAny().toMillis());
 
@@ -338,158 +333,65 @@ public class DynamoDBSinkTest {
                 "Prodcuer still blocks although the queue is flushed",
                 moreElementsThread.isAlive());
 
-        producer.getPendingRecordFutures().get(3).set(result);
+        sink.manualCompletePendingRequest(null);
 
         testHarness.close();
     }
 
-    @Test
-    public void testOpen() throws Exception {
-        MockSerializationSchema<Object> serializationSchema = new MockSerializationSchema<>();
+    private static class DummyDynamoDBSink<T> extends DynamoDBSink<T> {
 
-        Properties config = TestUtils.getStandardProperties();
-        FlinkKinesisProducer<Object> producer =
-                new FlinkKinesisProducer<>(serializationSchema, config);
-        AbstractStreamOperatorTestHarness<Object> testHarness =
-                new AbstractStreamOperatorTestHarness<>(new StreamSink<>(producer), 1, 1, 0);
+        private static final long serialVersionUID = 4785071393265352746L;
 
-        testHarness.open();
-        assertThat("Open method was not called", serializationSchema.isOpenCalled(), is(true));
-    }
+        private transient DynamoDBProducer mockProducer;
+        private transient List<Map<String, List<WriteRequest>>> batchRequests = new ArrayList<>();
+        private transient MultiShotLatch flushLatch = new MultiShotLatch();
+        private DynamoDBProducer.Listener listener;
 
-    // ----------------------------------------------------------------------
-    // Utility test classes
-    // ----------------------------------------------------------------------
+        private int completed = 0;
 
-    /**
-     * A non-serializable {@link KinesisSerializationSchema} (because it is a nested class with
-     * reference to the enclosing class, which is not serializable) used for testing.
-     */
-    private final class NonSerializableSerializationSchema
-            implements KinesisSerializationSchema<String> {
-
-        private static final long serialVersionUID = 3361337188490178780L;
-
-        @Override
-        public ByteBuffer serialize(String element) {
-            return ByteBuffer.wrap(element.getBytes());
+        public DummyDynamoDBSink(
+                DynamoDBSinkFunction<T> dynamoDBSinkFunction, Properties configProps) {
+            super(dynamoDBSinkFunction, configProps);
         }
 
-        @Override
-        public String getTargetStream(String element) {
-            return "test-stream";
-        }
-    }
-
-    /** A static, serializable {@link KinesisSerializationSchema}. */
-    private static final class SerializableSerializationSchema
-            implements KinesisSerializationSchema<String> {
-
-        private static final long serialVersionUID = 6298573834520052886L;
-
-        @Override
-        public ByteBuffer serialize(String element) {
-            return ByteBuffer.wrap(element.getBytes());
+        /**
+         * This method is used to mimic a scheduled batch request; we need to do this manually
+         * because we are mocking the BatchProcessor.
+         */
+        public void waitUntilFlushStarted() throws Exception {
+            flushLatch.await();
         }
 
-        @Override
-        public String getTargetStream(String element) {
-            return "test-stream";
-        }
-    }
+        /**
+         * This method is used to mimic the completion of a request towards DynamoDB. This method
+         * will trigger the listener callback with an exception if throwable is not null
+         *
+         * @param throwable
+         */
+        public void manualCompletePendingRequest(Throwable throwable) {
+            completed++;
+            batchRequests.get(completed - 1);
+            BatchRequest batchRequest = new BatchRequest();
+            listener.beforeBatch(123L, batchRequest);
 
-    /**
-     * A non-serializable {@link KinesisPartitioner} (because it is a nested class with reference to
-     * the enclosing class, which is not serializable) used for testing.
-     */
-    private final class NonSerializableCustomPartitioner extends KinesisPartitioner<String> {
-
-        private static final long serialVersionUID = -5961578876056779161L;
-
-        @Override
-        public String getPartitionId(String element) {
-            return "test-partition";
-        }
-    }
-
-    /** A static, serializable {@link KinesisPartitioner}. */
-    private static final class SerializableCustomPartitioner extends KinesisPartitioner<String> {
-
-        private static final long serialVersionUID = -4996071893997035695L;
-
-        @Override
-        public String getPartitionId(String element) {
-            return "test-partition";
-        }
-    }
-
-    private static class DummyFlinkKinesisProducer<T> extends FlinkKinesisProducer<T> {
-
-        private static final long serialVersionUID = -1212425318784651817L;
-
-        private static final String DUMMY_STREAM = "dummy-stream";
-        private static final String DUMMY_PARTITION = "dummy-partition";
-
-        private transient KinesisProducer mockProducer;
-        private List<SettableFuture<UserRecordResult>> pendingRecordFutures = new LinkedList<>();
-
-        private transient MultiShotLatch flushLatch;
-
-        DummyFlinkKinesisProducer(SerializationSchema<T> schema) {
-            super(schema, TestUtils.getStandardProperties());
-
-            setDefaultStream(DUMMY_STREAM);
-            setDefaultPartition(DUMMY_PARTITION);
-            setFailOnError(true);
-
-            // set up mock producer
-            this.mockProducer = mock(KinesisProducer.class);
-
-            when(mockProducer.addUserRecord(
-                    anyString(),
-                    anyString(),
-                    nullable(String.class),
-                    any(ByteBuffer.class)))
-                    .thenAnswer(
-                            new Answer<Object>() {
-                                @Override
-                                public Object answer(InvocationOnMock invocationOnMock)
-                                        throws Throwable {
-                                    SettableFuture<UserRecordResult> future =
-                                            SettableFuture.create();
-                                    pendingRecordFutures.add(future);
-                                    return future;
-                                }
-                            });
-
-            when(mockProducer.getOutstandingRecordsCount())
-                    .thenAnswer(
-                            new Answer<Object>() {
-                                @Override
-                                public Object answer(InvocationOnMock invocationOnMock)
-                                        throws Throwable {
-                                    return getNumPendingRecordFutures();
-                                }
-                            });
-
-            doAnswer(
-                    new Answer() {
-                        @Override
-                        public Object answer(InvocationOnMock invocationOnMock)
-                                throws Throwable {
-                            flushLatch.trigger();
-                            return null;
-                        }
-                    })
-                    .when(mockProducer)
-                    .flush();
-
-            this.flushLatch = new MultiShotLatch();
+            if (throwable == null) {
+                listener.afterBatch(
+                        123L, batchRequest, new BatchResponse(new ArrayList<>(), 1000L, true));
+            } else {
+                listener.afterBatch(123L, batchRequest, throwable);
+            }
         }
 
-        @Override
-        protected KinesisProducer getKinesisProducer(KinesisProducerConfiguration producerConfig) {
+        public DynamoDBProducer getMockBatchProcessor() {
             return mockProducer;
+        }
+
+        public int getOutstandingRecordsCount() {
+            return batchRequests.size() - completed;
+        }
+
+        public int getSize() {
+            return batchRequests.size();
         }
 
         @Override
@@ -501,38 +403,74 @@ public class DynamoDBSinkTest {
             // should fail the test
             if (mockProducer.getOutstandingRecordsCount() > 0) {
                 throw new RuntimeException(
-                        "Flushing is enabled; snapshots should be blocked until all pending records are flushed");
+                        "Snapshots should be blocked until all pending records are flushed");
             }
         }
 
-        List<SettableFuture<UserRecordResult>> getPendingRecordFutures() {
-            return pendingRecordFutures;
-        }
+        /**
+         * Override the batch processor build process to provide a mock implementation, but reuse
+         * the listener implementation in our mock to test that the listener logic works correctly
+         * with request flushing logic.
+         */
+        @Override
+        protected DynamoDBProducer buildDynamoDBProducer(final DynamoDBProducer.Listener listener) {
+            this.listener = listener;
+            this.mockProducer = mock(DynamoDBProducer.class);
 
-        void waitUntilFlushStarted() throws Exception {
-            flushLatch.await();
-        }
+            doAnswer(
+                            new Answer<Object>() {
+                                @Override
+                                public Object answer(InvocationOnMock invocationOnMock)
+                                        throws Throwable {
+                                    // intercept the request and add it to our mock batch requests
+                                    batchRequests.add(invocationOnMock.getArgument(0));
+                                    return null;
+                                }
+                            })
+                    .when(mockProducer)
+                    .add(anyMap());
 
-        private int getNumPendingRecordFutures() {
-            int numPending = 0;
+            doAnswer(
+                            new Answer<Object>() {
+                                @Override
+                                public Integer answer(InvocationOnMock invocation)
+                                        throws Throwable {
+                                    return getOutstandingRecordsCount();
+                                }
+                            })
+                    .when(mockProducer)
+                    .getOutstandingRecordsCount();
 
-            for (SettableFuture<UserRecordResult> future : pendingRecordFutures) {
-                if (!future.isDone()) {
-                    numPending++;
-                }
-            }
+            doAnswer(
+                            new Answer<Object>() {
+                                @Override
+                                public Object answer(InvocationOnMock invocationOnMock)
+                                        throws Throwable {
+                                    // wait until we are allowed to continue with the flushing
+                                    flushLatch.trigger();
+                                    return null;
+                                }
+                            })
+                    .when(mockProducer)
+                    .flush();
 
-            return numPending;
+            return mockProducer;
         }
     }
 
-    private static Properties getStandardProperties() {
-        Properties config = new Properties();
-//        config.setProperty(AWSConfigConstants.AWS_REGION, "us-east-1");
-//        config.setProperty(AWSConfigConstants.AWS_ACCESS_KEY_ID, "accessKeyId");
-//        config.setProperty(AWSConfigConstants.AWS_SECRET_ACCESS_KEY, "secretKey");
+    private static class DummySinkFunction implements DynamoDBSinkFunction<String> {
 
-        return config;
+        private static final long serialVersionUID = 289642437354078271L;
+
+        @Override
+        public void process(String element, RuntimeContext ctx, DynamoDBWriter writer) {
+            Map<String, List<WriteRequest>> batchRequest = new HashMap<>();
+            List<WriteRequest> writeRequests = new ArrayList<>();
+            Map<String, AttributeValue> item = new HashMap<>();
+            item.put("key", new AttributeValue().withS(element));
+            writeRequests.add(new WriteRequest().withPutRequest(new PutRequest().withItem(item)));
+            batchRequest.put("Table", writeRequests);
+            writer.add(batchRequest);
+        }
     }
-
 }

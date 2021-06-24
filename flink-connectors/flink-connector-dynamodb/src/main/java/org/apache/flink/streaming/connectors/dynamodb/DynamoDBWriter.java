@@ -18,27 +18,26 @@
 
 package org.apache.flink.streaming.connectors.dynamodb;
 
-import com.amazonaws.services.dynamodbv2.model.WriteRequest;
-
 import org.apache.flink.annotation.PublicEvolving;
+
+import com.amazonaws.services.dynamodbv2.model.WriteRequest;
 
 import java.util.List;
 import java.util.Map;
 
 /**
- * Users add multiple write requests to {@link DynamoDBWriter} to prepare them
- * for sending to DynamoDB.
+ * Users add multiple write requests to {@link DynamoDBWriter} to prepare them for sending to
+ * DynamoDB.
  */
 @PublicEvolving
 public interface DynamoDBWriter {
 
     /**
-     * Add multiple {@link WriteRequest WriteRequests} to the writer to prepare for sending a request to
-     * DynamoDB.
+     * Add multiple {@link WriteRequest WriteRequests} to the writer to prepare for sending a
+     * request to DynamoDB.
      *
-     * @param writeRequests A map of one or more table names and, for each table, a list of
-     * {@link WriteRequest WriteRequests to be performed
+     * @param writeRequests A map of one or more table names and, for each table a list of {@link
+     *     WriteRequest} WriteRequests to be performed
      */
     void add(Map<String, List<WriteRequest>> writeRequests);
-
 }

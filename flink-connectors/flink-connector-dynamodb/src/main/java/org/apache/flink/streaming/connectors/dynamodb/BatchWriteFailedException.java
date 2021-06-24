@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.connectors.dynamodb;
 
+/** XX. */
 public class BatchWriteFailedException extends Exception {
 
     private static final long serialVersionUID = 1L;

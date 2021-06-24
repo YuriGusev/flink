@@ -18,5 +18,5 @@
 
 package org.apache.flink.streaming.connectors.dynamodb;
 
-public class BatchRequest {
-}
+/** XX. */
+public class BatchRequest {}
