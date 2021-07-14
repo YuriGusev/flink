@@ -18,5 +18,29 @@
 
 package org.apache.flink.streaming.connectors.dynamodb.batch;
 
-/** XX. */
-public class BatchRequest {}
+import org.apache.flink.util.Preconditions;
+
+import software.amazon.awssdk.services.dynamodb.model.DynamoDbRequest;
+
+import java.util.List;
+
+/** Wrapper class for DynamoDB batch request. */
+public class BatchRequest<T extends DynamoDbRequest> {
+    private final String id;
+    private final List<T> requests;
+
+    public BatchRequest(String id, List<T> requests) {
+        Preconditions.checkNotNull(id);
+        Preconditions.checkNotNull(requests);
+        this.id = id;
+        this.requests = requests;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public List<T> getRequests() {
+        return requests;
+    }
+}

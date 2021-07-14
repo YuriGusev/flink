@@ -18,16 +18,9 @@
 
 package org.apache.flink.streaming.connectors.dynamodb.batch;
 
-/** TODO. */
-public class BatchWriteFailedException extends Exception {
-
-    private BatchResponse result;
-
-    public BatchWriteFailedException(BatchResponse response) {
-        this.result = response;
-    }
-
-    public BatchResponse getResult() {
-        return this.result;
+/** Exception is thrown if a DynamoDB request was invalid. */
+public class InvalidRequestException extends RuntimeException {
+    public InvalidRequestException(String message) {
+        super(message);
     }
 }
