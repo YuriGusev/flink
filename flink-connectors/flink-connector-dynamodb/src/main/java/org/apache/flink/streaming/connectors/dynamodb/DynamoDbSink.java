@@ -268,10 +268,10 @@ public class DynamoDbSink<IN> extends RichSinkFunction<IN> implements Checkpoint
     private class DynamoDbProducerListener implements DynamoDbProducer.Listener {
 
         @Override
-        public void beforeBatch(long executionId, BatchRequest request) {}
+        public void beforeWrite(long executionId, BatchRequest request) {}
 
         @Override
-        public void afterBatch(long executionId, BatchRequest request, BatchResponse response) {
+        public void afterWrite(long executionId, BatchRequest request, BatchResponse response) {
             backpressureLatch.trigger();
             if (!response.isSuccessful()) {
                 if (failOnError) {
@@ -286,7 +286,7 @@ public class DynamoDbSink<IN> extends RichSinkFunction<IN> implements Checkpoint
         }
 
         @Override
-        public void afterBatch(long executionId, BatchRequest request, Throwable failure) {
+        public void afterWrite(long executionId, BatchRequest request, Throwable failure) {
             backpressureLatch.trigger();
             if (failOnError) {
                 thrownException = failure;
