@@ -370,12 +370,12 @@ public class DynamoDbSinkTest {
             completed++;
             batchRequests.get(completed - 1);
             BatchRequest batchRequest = new BatchRequest();
-            listener.beforeBatch(123L, batchRequest);
+            listener.beforeWrite(123L, batchRequest);
 
             if (throwable == null) {
-                listener.afterBatch(123L, batchRequest, new BatchResponse(true, 2, null, 10L));
+                listener.afterWrite(123L, batchRequest, new BatchResponse(true, 2, null, 10L));
             } else {
-                listener.afterBatch(123L, batchRequest, throwable);
+                listener.afterWrite(123L, batchRequest, throwable);
             }
         }
 
