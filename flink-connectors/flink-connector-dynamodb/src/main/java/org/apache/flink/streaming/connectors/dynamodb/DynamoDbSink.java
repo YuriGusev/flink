@@ -27,14 +27,13 @@ import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
-import org.apache.flink.streaming.connectors.dynamodb.batch.BatchRequest;
-import org.apache.flink.streaming.connectors.dynamodb.batch.BatchResponse;
+import org.apache.flink.streaming.connectors.dynamodb.batch.WriteRequest;
+import org.apache.flink.streaming.connectors.dynamodb.batch.WriteResponse;
 import org.apache.flink.streaming.connectors.dynamodb.util.TimeoutLatch;
 import org.apache.flink.util.InstantiationUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
 import java.util.Properties;
 
@@ -268,10 +267,10 @@ public class DynamoDbSink<IN> extends RichSinkFunction<IN> implements Checkpoint
     private class DynamoDbProducerListener implements DynamoDbProducer.Listener {
 
         @Override
-        public void beforeWrite(long executionId, BatchRequest request) {}
+        public void beforeWrite(long executionId, WriteRequest request) {}
 
         @Override
-        public void afterWrite(long executionId, BatchRequest request, BatchResponse response) {
+        public void afterWrite(long executionId, WriteRequest request, WriteResponse response) {
             backpressureLatch.trigger();
             if (!response.isSuccessful()) {
                 if (failOnError) {
@@ -286,7 +285,7 @@ public class DynamoDbSink<IN> extends RichSinkFunction<IN> implements Checkpoint
         }
 
         @Override
-        public void afterWrite(long executionId, BatchRequest request, Throwable failure) {
+        public void afterWrite(long executionId, WriteRequest request, Throwable failure) {
             backpressureLatch.trigger();
             if (failOnError) {
                 thrownException = failure;
