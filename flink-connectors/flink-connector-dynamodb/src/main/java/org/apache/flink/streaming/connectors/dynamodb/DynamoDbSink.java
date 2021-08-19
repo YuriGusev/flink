@@ -89,12 +89,6 @@ public class DynamoDbSink<IN> extends RichSinkFunction<IN> implements Checkpoint
     /** Field for async exception. */
     private transient volatile Throwable thrownException;
 
-    /**
-     * Provided to the user via the {@link DynamoDbSinkFunction} to add {@link WriteRequest
-     * WriteRequest}.
-     */
-    private transient DynamoDBWriter dynamoDBWriter;
-
     private transient DynamoDbProducer producer;
 
     public DynamoDbSink(DynamoDbSinkFunction<IN> dynamoDBSinkFunction, Properties configProps) {
