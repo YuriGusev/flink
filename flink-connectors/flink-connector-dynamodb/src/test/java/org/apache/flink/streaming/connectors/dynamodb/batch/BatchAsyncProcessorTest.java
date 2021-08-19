@@ -22,7 +22,8 @@ import org.apache.flink.streaming.connectors.dynamodb.ProducerException;
 import org.apache.flink.streaming.connectors.dynamodb.ProducerWriteRequest;
 import org.apache.flink.streaming.connectors.dynamodb.ProducerWriteResponse;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.flink.shaded.guava18.com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import org.junit.Test;
 
 import java.util.Collections;
