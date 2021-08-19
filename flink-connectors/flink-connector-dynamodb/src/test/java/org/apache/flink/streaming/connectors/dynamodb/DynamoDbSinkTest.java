@@ -371,7 +371,9 @@ public class DynamoDbSinkTest {
             listener.beforeWrite("123", producerWriteRequest);
 
             if (throwable == null) {
-                listener.afterWrite("123", producerWriteRequest,
+                listener.afterWrite(
+                        "123",
+                        producerWriteRequest,
                         new ProducerWriteResponse("123", true, 2, null, 10L));
             } else {
                 listener.afterWrite("123L", producerWriteRequest, throwable);
