@@ -6,8 +6,6 @@ import org.apache.flink.core.testutils.CheckedThread;
 import org.apache.flink.core.testutils.MultiShotLatch;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.operators.StreamSink;
-import org.apache.flink.streaming.connectors.dynamodb.batch.WriteRequest;
-import org.apache.flink.streaming.connectors.dynamodb.batch.WriteResponse;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.util.OneInputStreamOperatorTestHarness;
 import org.apache.flink.util.InstantiationUtil;
@@ -370,13 +368,17 @@ public class DynamoDbSinkTest {
         public void manualCompletePendingRequest(Throwable throwable) {
             completed++;
             batchRequests.get(completed - 1);
-            WriteRequest batchRequest = new WriteRequest("", ImmutableList.of());
-            listener.beforeWrite(123L, batchRequest);
+            ProducerWriteRequest producerWriteRequest =
+                    new ProducerWriteRequest("", "", ImmutableList.of());
+            listener.beforeWrite("123", producerWriteRequest);
 
             if (throwable == null) {
-                listener.afterWrite(123L, batchRequest, new WriteResponse(true, 2, null, 10L));
+                listener.afterWrite(
+                        "123",
+                        producerWriteRequest,
+                        new ProducerWriteResponse("123", true, 2, null, 10L));
             } else {
-                listener.afterWrite(123L, batchRequest, throwable);
+                listener.afterWrite("123L", producerWriteRequest, throwable);
             }
         }
 

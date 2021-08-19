@@ -20,8 +20,8 @@ package org.apache.flink.streaming.connectors.dynamodb.util;
 
 import org.apache.flink.annotation.Internal;
 
-/** Internal use. */
 @Internal
+/** Internal use. */
 public class TimeoutLatch {
 
     private final Object lock = new Object();
