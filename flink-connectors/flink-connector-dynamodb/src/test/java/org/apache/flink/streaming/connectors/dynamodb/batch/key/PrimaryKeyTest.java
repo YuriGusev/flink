@@ -21,7 +21,8 @@ package org.apache.flink.streaming.connectors.dynamodb.batch.key;
 import org.apache.flink.streaming.connectors.dynamodb.batch.InvalidRequestException;
 import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
 
-import com.google.common.collect.ImmutableMap;
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
+
 import org.junit.Test;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -34,6 +35,7 @@ import java.util.HashMap;
 
 import static org.junit.Assert.assertEquals;
 
+/** Unit tests for {@link PrimaryKeyTest}. */
 public class PrimaryKeyTest {
 
     private static final String PARTITION_KEY_NAME = "part_key_name";
