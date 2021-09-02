@@ -148,7 +148,7 @@ public class DynamoDbBatchWriter implements Callable<ProducerWriteResponse> {
                             currentAttemptResult.getAttemptNumber() + 1);
                     result = client.batchWriteItem(req);
 
-                    if (result.hasUnprocessedItems()) {
+                    if (result.unprocessedItems() != null && !result.unprocessedItems().isEmpty()) {
                         req = createRequest(result.unprocessedItems());
                         interrupted = sleepFor(retryPolicy.getBackOffTime(currentAttemptResult));
                         currentAttemptResult.setFinallySuccessful(false);
