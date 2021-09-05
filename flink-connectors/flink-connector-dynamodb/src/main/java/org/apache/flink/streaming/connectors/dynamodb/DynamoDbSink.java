@@ -92,10 +92,10 @@ public class DynamoDbSink<IN> extends RichSinkFunction<IN> implements Checkpoint
     /** Field for async exception. */
     private transient volatile Throwable thrownException;
 
-    /** The DynamoDb Producer builder */
+    /** The DynamoDb Producer builder. */
     private transient DynamoDbProducerBuilder dynamoDbProducerBuilder;
 
-    /** DynamoDb Client created by AWS2Util */
+    /** DynamoDb Client created by AWS2Util. */
     private transient DynamoDbClient client;
 
     private transient DynamoDbProducer producer;
