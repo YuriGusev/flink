@@ -19,6 +19,10 @@
 package org.apache.flink.streaming.connectors.dynamodb.test;
 
 import org.apache.flink.api.common.functions.RuntimeContext;
+
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableList;
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
+
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.dynamodb.DynamoDbProducer;
 import org.apache.flink.streaming.connectors.dynamodb.DynamoDbSink;
@@ -42,8 +46,6 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 import java.net.URI;
-import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.Assert.assertEquals;
@@ -94,13 +96,14 @@ public class DynamoDbConnectorEndToEndTest {
         dynamoDbSink.setFailOnError(true);
         dynamoDbSink.setBatchSize(1);
 
-        env.fromCollection(List.of(1, 2, 3)).map(x -> x).addSink(dynamoDbSink);
+        env.fromCollection(ImmutableList.of(1, 2, 3))
+                .addSink(dynamoDbSink);
         env.execute("DynamoDBTest");
         GetItemResponse id =
                 dynamoDbClient.getItem(
                         GetItemRequest.builder()
                                 .tableName("test_table")
-                                .key(Map.of("number_id", AttributeValue.builder().s("1").build()))
+                                .key(ImmutableMap.of("number_id", AttributeValue.builder().s("1").build()))
                                 .build());
         assertEquals("1", id.item().get("number_id").s());
     }
@@ -115,7 +118,7 @@ public class DynamoDbConnectorEndToEndTest {
                     PutItemRequest.builder()
                             .tableName("test_table")
                             .item(
-                                    Map.of(
+                                    ImmutableMap.of(
                                             "number_id",
                                             AttributeValue.builder()
                                                     .s(Integer.toString(value))
