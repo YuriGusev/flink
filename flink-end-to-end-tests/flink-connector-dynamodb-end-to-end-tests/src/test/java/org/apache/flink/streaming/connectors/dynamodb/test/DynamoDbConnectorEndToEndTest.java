@@ -19,14 +19,13 @@
 package org.apache.flink.streaming.connectors.dynamodb.test;
 
 import org.apache.flink.api.common.functions.RuntimeContext;
-
-import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableList;
-import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
-
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.dynamodb.DynamoDbProducer;
 import org.apache.flink.streaming.connectors.dynamodb.DynamoDbSink;
 import org.apache.flink.streaming.connectors.dynamodb.DynamoDbSinkFunction;
+
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableList;
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
 
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -96,14 +95,16 @@ public class DynamoDbConnectorEndToEndTest {
         dynamoDbSink.setFailOnError(true);
         dynamoDbSink.setBatchSize(1);
 
-        env.fromCollection(ImmutableList.of(1, 2, 3))
-                .addSink(dynamoDbSink);
+        env.fromCollection(ImmutableList.of(1, 2, 3)).addSink(dynamoDbSink);
         env.execute("DynamoDBTest");
         GetItemResponse id =
                 dynamoDbClient.getItem(
                         GetItemRequest.builder()
                                 .tableName("test_table")
-                                .key(ImmutableMap.of("number_id", AttributeValue.builder().s("1").build()))
+                                .key(
+                                        ImmutableMap.of(
+                                                "number_id",
+                                                AttributeValue.builder().s("1").build()))
                                 .build());
         assertEquals("1", id.item().get("number_id").s());
     }
