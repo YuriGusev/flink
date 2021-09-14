@@ -29,6 +29,8 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.util.OneInputStreamOperatorTestHarness;
 import org.apache.flink.util.InstantiationUtil;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableList;
+
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -386,7 +388,8 @@ public class DynamoDbSinkTest {
         public void manualCompletePendingRequest(Throwable throwable) {
             completed++;
             batchRequests.get(completed - 1);
-            ProducerWriteRequest producerWriteRequest = new ProducerWriteRequest("", "", List.of());
+            ProducerWriteRequest producerWriteRequest =
+                    new ProducerWriteRequest("", "", ImmutableList.of());
             listener.beforeWrite("123", producerWriteRequest);
 
             if (throwable == null) {
