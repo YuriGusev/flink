@@ -57,4 +57,14 @@ public interface WriteRequestFailureHandler extends Serializable {
      *     the exception or a custom one
      */
     void onFailure(ProducerWriteRequest request, Throwable failure) throws Throwable;
+
+    /**
+     * Handle a failed {@link ProducerWriteRequest}.
+     *
+     * @param request the {@link ProducerWriteRequest} that failed due to the failure
+     * @param response batch writer response containing failure
+     * @throws Throwable if the sink should fail on this failure, the implementation should rethrow
+     *     the exception or a custom one
+     */
+    void onFailure(ProducerWriteRequest request, ProducerWriteResponse response) throws Throwable;
 }
