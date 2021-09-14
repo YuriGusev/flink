@@ -358,14 +358,14 @@ public class DynamoDbSink<IN> extends RichSinkFunction<IN> implements Checkpoint
         @Override
         public void onFailure(ProducerWriteRequest request, Throwable failure) throws Throwable {
             LOG.error("Write request failed", failure);
-            throw new RuntimeException(failure);
+            throw new Exception(failure);
         }
 
         @Override
         public void onFailure(ProducerWriteRequest request, ProducerWriteResponse response)
                 throws Throwable {
             LOG.error("Write request failed", response.getException());
-            throw new RuntimeException(response.getException());
+            throw new Exception(response.getException());
         }
     }
 }
