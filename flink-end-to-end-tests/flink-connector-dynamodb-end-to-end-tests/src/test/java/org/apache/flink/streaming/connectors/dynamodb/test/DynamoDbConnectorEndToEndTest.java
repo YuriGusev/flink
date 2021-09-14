@@ -30,6 +30,7 @@ import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.testcontainers.containers.GenericContainer;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -64,7 +65,7 @@ public class DynamoDbConnectorEndToEndTest {
                                 URI.create(
                                         "http://localhost:" + dynamoDBLocal.getFirstMappedPort()))
                         .region(Region.US_EAST_1)
-                        .credentialsProvider(DefaultCredentialsProvider.create())
+                        .credentialsProvider(() -> AwsBasicCredentials.create("x", "y"))
                         .build();
         dynamoDbClient.createTable(
                 CreateTableRequest.builder()
@@ -90,6 +91,8 @@ public class DynamoDbConnectorEndToEndTest {
         Properties properties = new Properties();
         properties.put("aws.region", "us-east-1");
         properties.put("aws.endpoint", "http://localhost:" + dynamoDBLocal.getFirstMappedPort());
+        properties.put("aws.credentials.provider.basic.accesskeyid", "x");
+        properties.put("aws.credentials.provider.basic.secretkey", "y");
         DynamoDbSink<Integer> dynamoDbSink =
                 new DynamoDbSink<>(new DynamoDBTestSinkFunction(), properties);
         dynamoDbSink.setFailOnError(true);
