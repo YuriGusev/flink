@@ -278,7 +278,7 @@ public class DynamoDbSinkTest {
      * drops below the limit; we set a timeout because the test will not finish if the logic is
      * broken.
      */
-    @Test(timeout = 10000)
+    @Test(timeout = 5000)
     public void testBackpressure() throws Throwable {
         final Deadline deadline = Deadline.fromNow(Duration.ofSeconds(10));
 
