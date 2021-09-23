@@ -88,7 +88,8 @@ under the License.
 		<module>flink-python-test</module>
 		<module>flink-end-to-end-tests-hbase</module>
 		<module>flink-glue-schema-registry-test</module>
-	</modules>
+        <module>flink-connector-dynamodb-end-to-end-tests</module>
+    </modules>
 
 	<dependencyManagement>
 		<dependencies>
