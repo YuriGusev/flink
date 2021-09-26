@@ -29,7 +29,7 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.util.OneInputStreamOperatorTestHarness;
 import org.apache.flink.util.InstantiationUtil;
 
-import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableList;
+import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -171,7 +171,7 @@ public class DynamoDbSinkTest {
      * following checkpoint is rethrown; we set a timeout because the test will not finish if the
      * logic is broken.
      */
-    @Test(timeout = 5000)
+    @Test(timeout = 10000)
     public void testBatchFailureRethrownOnCheckpointAfterFlush() throws Throwable {
         final DummyDynamoDbSink<String> sink =
                 new DummyDynamoDbSink<>(new DummySinkFunction(), getStandardProperties());

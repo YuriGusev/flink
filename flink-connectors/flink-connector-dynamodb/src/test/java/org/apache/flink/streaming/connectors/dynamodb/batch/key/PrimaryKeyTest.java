@@ -21,7 +21,7 @@ package org.apache.flink.streaming.connectors.dynamodb.batch.key;
 import org.apache.flink.streaming.connectors.dynamodb.batch.InvalidRequestException;
 import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
 
-import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
+import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableMap;
 
 import org.junit.Test;
 import software.amazon.awssdk.core.SdkBytes;

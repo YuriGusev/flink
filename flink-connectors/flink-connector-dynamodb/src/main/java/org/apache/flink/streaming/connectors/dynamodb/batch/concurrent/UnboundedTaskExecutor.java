@@ -18,7 +18,7 @@
 
 package org.apache.flink.streaming.connectors.dynamodb.batch.concurrent;
 
-import org.apache.flink.shaded.guava18.com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -26,7 +26,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Unbounded task executor with unbounded internal queue. We do not want the internal quque to be
+ * Unbounded task executor with unbounded internal queue. We do not want the internal queue to be
  * bounded as we would like to avoid rejections of the tasks. Throttling is controlled outside of
  * the executor.
  */
