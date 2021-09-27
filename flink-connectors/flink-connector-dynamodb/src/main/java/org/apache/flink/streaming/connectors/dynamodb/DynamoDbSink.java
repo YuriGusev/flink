@@ -27,6 +27,7 @@ import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
+import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
 import org.apache.flink.streaming.connectors.dynamodb.config.ProducerType;
 import org.apache.flink.streaming.connectors.dynamodb.config.RestartPolicy;
 import org.apache.flink.streaming.connectors.dynamodb.util.AwsV2Util;
@@ -84,7 +85,11 @@ public class DynamoDbSink<IN> extends RichSinkFunction<IN> implements Checkpoint
     /** Maximum length of the internal record queue before backpressuring. */
     private int queueLimit = Integer.MAX_VALUE;
 
+    /** Batch size to use for DynamoDb batch write request. * */
     private int batchSize = 25;
+
+    /** configuration for the tables used in this sink. * */
+    private DynamoDbTablesConfig dynamoDbTablesConfig;
 
     /**
      * Restart policy modifies behaviour of the producer if it has failed while scheduling or
@@ -169,10 +174,23 @@ public class DynamoDbSink<IN> extends RichSinkFunction<IN> implements Checkpoint
         this.queueLimit = queueLimit;
     }
 
-    /** @param batchSize Batch size of batch request sent to dynamodb, max is 25 */
+    /**
+     * sets the batch size to use in DynamoDb batch write request.
+     *
+     * @param batchSize Batch size of batch request sent to dynamodb, max is 25
+     */
     public void setBatchSize(int batchSize) {
         checkArgument(batchSize > 0 && batchSize <= 25, "batchSize must be between 1 and 25");
         this.batchSize = batchSize;
+    }
+
+    /**
+     * sets the tables configuration object.
+     *
+     * @param dynamoDbTablesConfig tables configuration
+     */
+    public void setDynamoDbTablesConfig(DynamoDbTablesConfig dynamoDbTablesConfig) {
+        this.dynamoDbTablesConfig = dynamoDbTablesConfig;
     }
 
     @Override
@@ -255,6 +273,7 @@ public class DynamoDbSink<IN> extends RichSinkFunction<IN> implements Checkpoint
                 .setListener(listener)
                 .setBatchSize(batchSize)
                 .setRestartPolicy(restartPolicy)
+                .setTablesConfig(dynamoDbTablesConfig)
                 .build();
     }
 
