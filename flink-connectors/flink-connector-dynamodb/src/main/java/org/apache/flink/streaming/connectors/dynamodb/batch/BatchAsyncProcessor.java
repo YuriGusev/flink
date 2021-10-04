@@ -54,11 +54,10 @@ public class BatchAsyncProcessor implements Consumer<ProducerWriteRequest<Dynamo
     private final AtomicBoolean started = new AtomicBoolean(false);
 
     public BatchAsyncProcessor(
-            int internalQueueLimit,
             ExecutorService completionExecutor,
             BatchWriterProvider writerProvider,
             CompletionHandler outputMessageHandler) {
-        this.outgoingMessagesQueue = new LinkedBlockingQueue<>(internalQueueLimit);
+        this.outgoingMessagesQueue = new LinkedBlockingQueue<>();
         this.executor = completionExecutor;
         this.taskExecutor = new UnboundedTaskExecutor();
         this.callbackCompletionService = new CountingCompletionService<>(this.taskExecutor);
@@ -73,8 +72,7 @@ public class BatchAsyncProcessor implements Consumer<ProducerWriteRequest<Dynamo
     @Override
     public void accept(ProducerWriteRequest<DynamoDbRequest> request) {
         if (!started.get() || taskExecutor.isShutdown() || executor.isShutdown()) {
-            throw new ProducerException(
-                    "BatchAsyncProcessor not started or has been shutdown and can not longer process new messages");
+            throw new ProducerException("BatchAsyncProcessor can no longer process new messages");
         }
         try {
             // here we are blocking the main thread until queue is freed
