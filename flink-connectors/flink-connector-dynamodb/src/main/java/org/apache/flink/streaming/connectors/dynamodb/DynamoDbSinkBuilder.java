@@ -23,7 +23,7 @@ import org.apache.flink.connector.base.sink.AsyncSinkBaseBuilder;
 import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
 
 /**
- * Builder to construct {@link DynamoDbSink2}.
+ * Builder to construct {@link DynamoDbSink}.
  *
  * @param <IN> input records to the sink
  */
@@ -55,8 +55,8 @@ public class DynamoDbSinkBuilder<IN>
     }
 
     @Override
-    public DynamoDbSink2<IN> build() {
-        return new DynamoDbSink2<>(
+    public DynamoDbSink<IN> build() {
+        return new DynamoDbSink<>(
                 dynamoDbClientProvider,
                 getElementConverter(),
                 dynamoDbTablesConfig,
