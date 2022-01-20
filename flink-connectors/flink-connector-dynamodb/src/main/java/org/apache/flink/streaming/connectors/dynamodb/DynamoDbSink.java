@@ -49,15 +49,17 @@ public class DynamoDbSink<IN> extends AsyncSinkBase<IN, DynamoDbWriteRequest> {
             int maxBatchSize,
             int maxInFlightRequests,
             int maxBufferedRequests,
-            long flushOnBufferSizeInBytes,
-            long maxTimeInBufferMS) {
+            long maxBatchSizeInBytes,
+            long maxTimeInBufferMS,
+            long maxRecordSizeInBytes) {
         super(
                 elementConverter,
                 maxBatchSize,
                 maxInFlightRequests,
                 maxBufferedRequests,
-                flushOnBufferSizeInBytes,
-                maxTimeInBufferMS);
+                maxBatchSizeInBytes,
+                maxTimeInBufferMS,
+                maxRecordSizeInBytes);
         this.dynamoDbClientProvider = dynamoDbClientProvider;
         this.dynamoDbTablesConfig = dynamoDbTablesConfig;
     }

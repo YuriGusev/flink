@@ -63,7 +63,8 @@ public class DynamoDbSinkBuilder<IN>
                 getMaxBatchSize(),
                 getMaxInFlightRequests(),
                 getMaxBufferedRequests(),
-                getFlushOnBufferSizeInBytes(),
-                getMaxTimeInBufferMS());
+                getMaxBatchSizeInBytes(),
+                getMaxTimeInBufferMS(),
+                getMaxRecordSizeInBytes());
     }
 }
