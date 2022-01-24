@@ -18,6 +18,9 @@
 
 package org.apache.flink.streaming.connectors.dynamodb;
 
+import org.apache.flink.streaming.connectors.dynamodb.sink.DynamoDbWriteRequest;
+import org.apache.flink.streaming.connectors.dynamodb.sink.DynamoDbWriterStateSerializer;
+
 import org.junit.Test;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 

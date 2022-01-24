@@ -16,8 +16,9 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.connectors.dynamodb;
+package org.apache.flink.streaming.connectors.dynamodb.sink;
 
+import org.apache.flink.annotation.Experimental;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
@@ -25,33 +26,35 @@ import org.apache.flink.connector.base.sink.writer.ElementConverter;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Properties;
 
 /**
  * Flink Sink to produce data into a single or multiple DynamoDb tables.
  *
- * @param <IN> type of incoming records
- * @see DynamoDbSinkBuilder on how to construct a KafkaSink
+ * @param <InputT> type of incoming records
+ * @see DynamoDbSinkBuilder on how to construct a DynamoDb sink
  */
 @PublicEvolving
-public class DynamoDbSink<IN> extends AsyncSinkBase<IN, DynamoDbWriteRequest> {
+public class DynamoDbSink<InputT> extends AsyncSinkBase<InputT, DynamoDbWriteRequest> {
 
-    private DynamoDbClientProvider dynamoDbClientProvider;
-    private DynamoDbTablesConfig dynamoDbTablesConfig;
+    private final Properties dynamoDbClientProperties;
+    private final DynamoDbTablesConfig dynamoDbTablesConfig;
+    private final boolean failOnError;
 
     protected DynamoDbSink(
-            DynamoDbClientProvider dynamoDbClientProvider,
-            ElementConverter<IN, DynamoDbWriteRequest> elementConverter,
-            DynamoDbTablesConfig dynamoDbTablesConfig,
+            ElementConverter<InputT, DynamoDbWriteRequest> elementConverter,
             int maxBatchSize,
             int maxInFlightRequests,
             int maxBufferedRequests,
             long maxBatchSizeInBytes,
             long maxTimeInBufferMS,
-            long maxRecordSizeInBytes) {
+            long maxRecordSizeInBytes,
+            boolean failOnError,
+            DynamoDbTablesConfig dynamoDbTablesConfig,
+            Properties dynamoDbClientProperties) {
         super(
                 elementConverter,
                 maxBatchSize,
@@ -60,26 +63,40 @@ public class DynamoDbSink<IN> extends AsyncSinkBase<IN, DynamoDbWriteRequest> {
                 maxBatchSizeInBytes,
                 maxTimeInBufferMS,
                 maxRecordSizeInBytes);
-        this.dynamoDbClientProvider = dynamoDbClientProvider;
+        this.failOnError = failOnError;
         this.dynamoDbTablesConfig = dynamoDbTablesConfig;
+        this.dynamoDbClientProperties = dynamoDbClientProperties;
     }
 
     /**
      * Create a {@link DynamoDbSinkBuilder} to construct a new {@link DynamoDbSink}.
      *
-     * @param <IN> type of incoming records
+     * @param <InputT> type of incoming records
      * @return {@link DynamoDbSinkBuilder}
      */
-    public static <IN> DynamoDbSinkBuilder<IN> builder() {
+    public static <InputT> DynamoDbSinkBuilder<InputT> builder() {
         return new DynamoDbSinkBuilder<>();
     }
 
+    @Experimental
     @Override
-    public SinkWriter<IN, Void, Collection<DynamoDbWriteRequest>> createWriter(
-            InitContext context, List<Collection<DynamoDbWriteRequest>> states) throws IOException {
-        return null;
+    public SinkWriter<InputT, Void, Collection<DynamoDbWriteRequest>> createWriter(
+            InitContext context, List<Collection<DynamoDbWriteRequest>> states) {
+        return new DynamoDbSinkWriter<>(
+                getElementConverter(),
+                context,
+                getMaxBatchSize(),
+                getMaxInFlightRequests(),
+                getMaxBufferedRequests(),
+                getMaxBatchSizeInBytes(),
+                getMaxTimeInBufferMS(),
+                getMaxRecordSizeInBytes(),
+                failOnError,
+                dynamoDbTablesConfig,
+                dynamoDbClientProperties);
     }
 
+    @Experimental
     @Override
     public Optional<SimpleVersionedSerializer<Collection<DynamoDbWriteRequest>>>
             getWriterStateSerializer() {
