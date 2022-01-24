@@ -77,8 +77,8 @@ public class DynamoDbSinkBuilder<InputT>
                 Optional.ofNullable(getMaxBatchSizeInBytes()).orElse(DEFAULT_MAX_BATCH_SIZE_IN_B),
                 Optional.ofNullable(getMaxTimeInBufferMS()).orElse(DEFAULT_MAX_TIME_IN_BUFFER_MS),
                 Optional.ofNullable(getMaxRecordSizeInBytes()).orElse(DEFAULT_MAX_RECORD_SIZE_IN_B),
-                Optional.ofNullable(failOnError).orElse(DEFAULT_FAIL_ON_ERROR),
-                dynamoDbTablesConfig,
-                dynamodbClientProperties);
+                Optional.of(failOnError).orElse(DEFAULT_FAIL_ON_ERROR),
+                Optional.ofNullable(dynamoDbTablesConfig).orElse(new DynamoDbTablesConfig()),
+                Optional.ofNullable(dynamodbClientProperties).orElse(new Properties()));
     }
 }
