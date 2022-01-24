@@ -19,10 +19,12 @@
 package org.apache.flink.streaming.connectors.dynamodb.sink;
 
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.runtime.client.JobExecutionException;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.datagen.DataGeneratorSource;
 import org.apache.flink.streaming.api.functions.source.datagen.RandomGenerator;
+import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
 import org.apache.flink.streaming.connectors.dynamodb.testutils.DynamoDBHelpers;
 import org.apache.flink.streaming.connectors.dynamodb.testutils.DynamoDbContainer;
 import org.apache.flink.streaming.connectors.dynamodb.util.DynamoDbElementConverter;
@@ -51,8 +53,6 @@ import static org.apache.flink.connector.aws.config.AWSConfigConstants.TRUST_ALL
 
 /** Integration test for {@link DynamoDbSink}. */
 public class DynamoDbSinkITCase {
-    private static final DockerImageName localstackImage = DockerImageName.parse(
-            "localstack/localstack");
     private static final String PARTITION_KEY = "key";
     private static final String SORT_KEY = "sort_key";
     private static DynamoDBHelpers dynamoDBHelpers;
@@ -79,10 +79,43 @@ public class DynamoDbSinkITCase {
     }
 
     @Test
-    public void testSink() throws Exception {
-        new Scenario()
-                .withTableName(tableName)
-                .runScenario();
+    public void testRandomDataSuccessfullyWritten() throws Exception {
+        new Scenario().withTableName(tableName).runScenario();
+    }
+
+    @Test
+    public void veryLargeMessagesFailsSinkMaxMessageSizeCheck() throws Exception {
+        Assertions.assertThatExceptionOfType(JobExecutionException.class)
+                .isThrownBy(
+                        () ->
+                                new Scenario()
+                                        .withNumberOfElementsToSend(5)
+                                        .withSizeOfMessageBytes(500 * 1000)
+                                        .withExpectedElements(5)
+                                        .withTableName(tableName)
+                                        .runScenario())
+                .havingCause()
+                .havingCause()
+                .withMessageContaining("The request entry sent to the buffer was of size");
+    }
+
+    @Test
+    public void veryLargeMessagesFailsGracefullyWhenRejectedByDynamoDb() throws Exception {
+        Assertions.assertThatExceptionOfType(JobExecutionException.class)
+                .isThrownBy(
+                        () ->
+                                new Scenario()
+                                        .withNumberOfElementsToSend(5)
+                                        .withSizeOfMessageBytes(500 * 1000)
+                                        .withMaxRecordSizeInBytes(500 * 1000 * 1000)
+                                        .withMaxBatchSizeInBytes(
+                                                600 * 1000 * 1000) // more than max record size
+                                        .withExpectedElements(5)
+                                        .withTableName(tableName)
+                                        .runScenario())
+                .havingCause()
+                .havingCause()
+                .withMessageContaining("Encountered non-recoverable exception");
     }
 
     private class Scenario {
@@ -94,10 +127,12 @@ public class DynamoDbSinkITCase {
         private int expectedElements = 50;
         private boolean failOnError = false;
         private String tableName;
+        private DynamoDbTablesConfig tablesConfig = new DynamoDbTablesConfig();
+        private long maxRecordSizeInBytes = 400 * 1000;
+        private long maxBatchSizeInBytes = 16 * 1000 * 1000;
 
         public void runScenario() throws Exception {
             dynamoDBHelpers.createTable(tableName, PARTITION_KEY, SORT_KEY);
-
             DataStream<String> stream =
                     env.addSource(
                                     new DataGeneratorSource<String>(
@@ -123,17 +158,17 @@ public class DynamoDbSinkITCase {
                             .setFailOnError(failOnError)
                             .setMaxBufferedRequests(1000)
                             .setFailOnError(true)
+                            .setDynamoDbTablesConfig(tablesConfig)
+                            .setMaxRecordSizeInBytes(maxRecordSizeInBytes)
+                            .setMaxBatchSizeInBytes(maxBatchSizeInBytes)
                             .setDynamoDbProperties(prop)
                             .build();
 
-            stream
-                    .map(new TestMapper(PARTITION_KEY, SORT_KEY))
-                    .sinkTo(dynamoDbSink);
+            stream.map(new TestMapper(PARTITION_KEY, SORT_KEY)).sinkTo(dynamoDbSink);
 
             env.execute("DynamoDbSink Async Sink Example Program");
 
-            Assertions
-                    .assertThat(dynamoDBHelpers.getItemsCount(tableName))
+            Assertions.assertThat(dynamoDBHelpers.getItemsCount(tableName))
                     .isEqualTo(expectedElements);
         }
 
@@ -177,6 +212,14 @@ public class DynamoDbSinkITCase {
             return this;
         }
 
-    }
+        public Scenario withMaxRecordSizeInBytes(long maxRecordSizeInBytes) {
+            this.maxRecordSizeInBytes = maxRecordSizeInBytes;
+            return this;
+        }
 
+        public Scenario withMaxBatchSizeInBytes(long maxBatchSizeInBytes) {
+            this.maxBatchSizeInBytes = maxBatchSizeInBytes;
+            return this;
+        }
+    }
 }

@@ -22,6 +22,7 @@ import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.exception.ApiCallAttemptTimeoutException;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 
 /** A collection of utility functions to simplify work with DynamoDB service exceptions. */
@@ -51,9 +52,23 @@ public class DynamoDbExceptionUtils {
         return isServiceException(e) && ((AwsServiceException) e).isThrottlingException();
     }
 
+    /**
+     * Validation exceptions are not retryable. See
+     * https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Programming.Errors.html.
+     */
+    public static boolean isValidationException(Throwable e) {
+        return e instanceof DynamoDbException
+                && ((DynamoDbException) e)
+                        .toBuilder()
+                        .awsErrorDetails()
+                        .errorCode()
+                        .equalsIgnoreCase("ValidationException");
+    }
+
     public static boolean isNotRetryableException(Throwable e) {
         return isClientException(e)
                 || isResourceNotFoundException(e)
-                || isConditionalCheckFailedException(e);
+                || isConditionalCheckFailedException(e)
+                || isValidationException(e);
     }
 }

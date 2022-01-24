@@ -17,12 +17,10 @@ public class TestMapper extends RichMapFunction<String, Map<String, AttributeVal
         this.sortKey = sortKey;
     }
 
-
     @Override
     public Map<String, AttributeValue> map(String data) throws Exception {
         final Map<String, AttributeValue> item = new HashMap<>();
         item.put(partitionKey, AttributeValue.builder().s(data).build());
-
         item.put(sortKey, AttributeValue.builder().s(data).build());
         return item;
     }

@@ -140,7 +140,7 @@ class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRe
         LOG.warn("DynamoDB Sink failed to persist {} entries", requestEntries.size(), err);
         numRecordsOutErrorsCounter.inc(requestEntries.size());
 
-        if (DynamoDbExceptionUtils.isNotRetryableException(err)) {
+        if (DynamoDbExceptionUtils.isNotRetryableException(err.getCause())) {
             getFatalExceptionCons()
                     .accept(
                             new DynamoDbSinkException(
