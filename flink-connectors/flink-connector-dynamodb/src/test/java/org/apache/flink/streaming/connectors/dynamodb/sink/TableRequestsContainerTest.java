@@ -29,6 +29,7 @@ import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
 import static org.junit.Assert.assertEquals;
 
+/** Tests for {@link TableRequestsContainer}. */
 public class TableRequestsContainerTest {
 
     private static final String PARTITION_KEY_NAME = "part_key_name";

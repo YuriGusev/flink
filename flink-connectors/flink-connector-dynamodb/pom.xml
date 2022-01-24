@@ -32,8 +32,9 @@ under the License.
 	<artifactId>flink-connector-dynamodb</artifactId>
 	<name>Flink : Connectors : DynamoDB</name>
 	<properties>
-		<aws.sdkv2.version>2.13.52</aws.sdkv2.version>
+		<aws.sdkv2.version>2.17.116</aws.sdkv2.version>
 		<commons-lang3.version>3.11</commons-lang3.version>
+		<testcontainers.version>1.16.2</testcontainers.version>
 	</properties>
 
 	<packaging>jar</packaging>
@@ -163,6 +164,19 @@ under the License.
 			<scope>test</scope>
 		</dependency>
 
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers</artifactId>
+			<version>${testcontainers.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>localstack</artifactId>
+			<version>${testcontainers.version}</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>

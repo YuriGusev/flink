@@ -21,6 +21,7 @@ package org.apache.flink.streaming.connectors.dynamodb.sink;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
+/** Tests for {@link DynamoDbSinkBuilder}. */
 public class DynamoDbSinkBuilderTest {
     @Test
     public void elementConverterOfSinkMustBeSetWhenBuilt() {

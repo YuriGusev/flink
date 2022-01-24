@@ -43,6 +43,11 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+/**
+ * TODO.
+ *
+ * @param <InputT>
+ */
 class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRequest> {
     private static final Logger LOG = LoggerFactory.getLogger(DynamoDbSinkWriter.class);
 
@@ -135,7 +140,6 @@ class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRe
         LOG.warn("DynamoDB Sink failed to persist {} entries", requestEntries.size(), err);
         numRecordsOutErrorsCounter.inc(requestEntries.size());
 
-        // TODO change logic after rebased on DLQ support changes from Nir
         if (DynamoDbExceptionUtils.isNotRetryableException(err)) {
             getFatalExceptionCons()
                     .accept(
