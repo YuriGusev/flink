@@ -1451,6 +1451,7 @@ under the License.
 						<exclude>flink-table/flink-table-code-splitter/src/test/resources/**</exclude>
 						<exclude>flink-connectors/flink-connector-pulsar/src/test/resources/**</exclude>
 						<exclude>flink-architecture-tests/violations/**</exclude>
+						<exclude>flink-connectors/flink-connector-dynamodb/src/test/resources/profile</exclude>
 
 						<!-- snapshots -->
 						<exclude>**/src/test/resources/serializer-snapshot-*</exclude>
