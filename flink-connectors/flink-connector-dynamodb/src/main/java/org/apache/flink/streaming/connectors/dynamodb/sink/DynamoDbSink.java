@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
 /**
  * Flink Sink to produce data into a single or multiple DynamoDb tables.
  *
@@ -63,6 +65,8 @@ public class DynamoDbSink<InputT> extends AsyncSinkBase<InputT, DynamoDbWriteReq
                 maxBatchSizeInBytes,
                 maxTimeInBufferMS,
                 maxRecordSizeInBytes);
+        checkNotNull(dynamoDbTablesConfig, "Missing dynamoDbTablesConfig");
+        checkNotNull(dynamoDbClientProperties, "Missing dynamoDbClientProperties");
         this.failOnError = failOnError;
         this.dynamoDbTablesConfig = dynamoDbTablesConfig;
         this.dynamoDbClientProperties = dynamoDbClientProperties;
