@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.connectors.dynamodb.retry;
+package org.apache.flink.streaming.connectors.dynamodb.util;
 
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.exception.ApiCallAttemptTimeoutException;
@@ -27,31 +27,31 @@ import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 /** A collection of utility functions to simplify work with DynamoDB service exceptions. */
 public class DynamoDbExceptionUtils {
 
-    public static boolean isServiceException(Exception e) {
+    public static boolean isServiceException(Throwable e) {
         return e instanceof AwsServiceException;
     }
 
-    public static boolean isClientException(Exception e) {
+    public static boolean isClientException(Throwable e) {
         return e instanceof SdkClientException;
     }
 
-    public static boolean isResourceNotFoundException(Exception e) {
+    public static boolean isResourceNotFoundException(Throwable e) {
         return e instanceof ResourceNotFoundException;
     }
 
-    public static boolean isConditionalCheckFailedException(Exception e) {
+    public static boolean isConditionalCheckFailedException(Throwable e) {
         return e instanceof ConditionalCheckFailedException;
     }
 
-    public static boolean isApiCallAttemptTimeoutException(Exception e) {
+    public static boolean isApiCallAttemptTimeoutException(Throwable e) {
         return e instanceof ApiCallAttemptTimeoutException;
     }
 
-    public static boolean isThrottlingException(Exception e) {
+    public static boolean isThrottlingException(Throwable e) {
         return isServiceException(e) && ((AwsServiceException) e).isThrottlingException();
     }
 
-    public static boolean isNotRetryableException(Exception e) {
+    public static boolean isNotRetryableException(Throwable e) {
         return isClientException(e)
                 || isResourceNotFoundException(e)
                 || isConditionalCheckFailedException(e);

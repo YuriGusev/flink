@@ -16,24 +16,24 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.connectors.dynamodb.batch.key;
+package org.apache.flink.streaming.connectors.dynamodb.sink.key;
 
-import org.apache.flink.streaming.connectors.dynamodb.batch.InvalidRequestException;
 import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
+import org.apache.flink.streaming.connectors.dynamodb.sink.InvalidRequestException;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableMap;
 
+import org.junit.Assert;
 import org.junit.Test;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.DynamoDbRequest;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.DeleteRequest;
+import software.amazon.awssdk.services.dynamodb.model.PutRequest;
+import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-
-import static org.junit.Assert.assertEquals;
+import java.util.Map;
 
 /** Unit tests for {@link PrimaryKey}. */
 public class PrimaryKeyTest {
@@ -55,16 +55,16 @@ public class PrimaryKeyTest {
                 AttributeValue.builder().bool(false).build());
     }
 
-    public PutItemRequest createPutItemRequest() {
-        ImmutableMap<String, AttributeValue> itemValues = createItemValues();
-
-        return PutItemRequest.builder().item(itemValues).build();
+    public WriteRequest createPutItemRequest(Map<String, AttributeValue> itemValues) {
+        return WriteRequest.builder()
+                .putRequest(PutRequest.builder().item(itemValues).build())
+                .build();
     }
 
-    public PutItemRequest createDeleteItemRequest() {
-        ImmutableMap<String, AttributeValue> itemValues = createItemValues();
-
-        return PutItemRequest.builder().item(itemValues).build();
+    public WriteRequest createDeleteItemRequest(Map<String, AttributeValue> itemValues) {
+        return WriteRequest.builder()
+                .deleteRequest(DeleteRequest.builder().key(itemValues).build())
+                .build();
     }
 
     @Test
@@ -72,11 +72,13 @@ public class PrimaryKeyTest {
         DynamoDbTablesConfig.TableConfig config =
                 new DynamoDbTablesConfig.TableConfig(PARTITION_KEY_NAME);
 
-        PrimaryKey putRequestKey = PrimaryKey.build(config, createPutItemRequest());
-        PrimaryKey deleteRequestKey = PrimaryKey.build(config, createDeleteItemRequest());
+        PrimaryKey putRequestKey =
+                PrimaryKey.build(config, createPutItemRequest(createItemValues()));
+        PrimaryKey deleteRequestKey =
+                PrimaryKey.build(config, createDeleteItemRequest(createItemValues()));
 
-        assertEquals(putRequestKey, deleteRequestKey);
-        assertEquals(putRequestKey.hashCode(), deleteRequestKey.hashCode());
+        Assert.assertEquals(putRequestKey, deleteRequestKey);
+        Assert.assertEquals(putRequestKey.hashCode(), deleteRequestKey.hashCode());
     }
 
     @Test
@@ -84,11 +86,13 @@ public class PrimaryKeyTest {
         DynamoDbTablesConfig.TableConfig config =
                 new DynamoDbTablesConfig.TableConfig(PARTITION_KEY_NAME, SORT_KEY_NAME);
 
-        PrimaryKey putRequestKey = PrimaryKey.build(config, createPutItemRequest());
-        PrimaryKey deleteRequestKey = PrimaryKey.build(config, createDeleteItemRequest());
+        PrimaryKey putRequestKey =
+                PrimaryKey.build(config, createPutItemRequest(createItemValues()));
+        PrimaryKey deleteRequestKey =
+                PrimaryKey.build(config, createDeleteItemRequest(createItemValues()));
 
-        assertEquals(putRequestKey, deleteRequestKey);
-        assertEquals(putRequestKey.hashCode(), deleteRequestKey.hashCode());
+        Assert.assertEquals(putRequestKey, deleteRequestKey);
+        Assert.assertEquals(putRequestKey.hashCode(), deleteRequestKey.hashCode());
     }
 
     @Test(expected = InvalidRequestException.class)
@@ -96,9 +100,12 @@ public class PrimaryKeyTest {
         DynamoDbTablesConfig.TableConfig config =
                 new DynamoDbTablesConfig.TableConfig(PARTITION_KEY_NAME);
 
-        DynamoDbRequest putRequest = PutItemRequest.builder().item(new HashMap<>()).build();
+        WriteRequest request =
+                WriteRequest.builder()
+                        .putRequest(PutRequest.builder().item(new HashMap<>()).build())
+                        .build();
 
-        PrimaryKey.build(config, putRequest);
+        PrimaryKey.build(config, createPutItemRequest(new HashMap<>()));
     }
 
     @Test(expected = InvalidRequestException.class)
@@ -108,9 +115,7 @@ public class PrimaryKeyTest {
         ImmutableMap<String, AttributeValue> itemValues =
                 ImmutableMap.of("some_item", AttributeValue.builder().bool(false).build());
 
-        DynamoDbRequest putRequest = PutItemRequest.builder().item(itemValues).build();
-
-        PrimaryKey.build(config, putRequest);
+        PrimaryKey.build(config, createPutItemRequest(itemValues));
     }
 
     @Test(expected = InvalidRequestException.class)
@@ -125,9 +130,7 @@ public class PrimaryKeyTest {
                         "some_item",
                         AttributeValue.builder().bool(false).build());
 
-        DynamoDbRequest putRequest = PutItemRequest.builder().item(itemValues).build();
-
-        PrimaryKey.build(config, putRequest);
+        PrimaryKey.build(config, createPutItemRequest(itemValues));
     }
 
     @Test(expected = InvalidRequestException.class)
@@ -142,18 +145,6 @@ public class PrimaryKeyTest {
                         "some_item",
                         AttributeValue.builder().bool(false).build());
 
-        DynamoDbRequest putRequest = PutItemRequest.builder().item(itemValues).build();
-
-        PrimaryKey.build(config, putRequest);
-    }
-
-    @Test(expected = InvalidRequestException.class)
-    public void testUpdateRequestNotSupported() {
-        DynamoDbTablesConfig.TableConfig config =
-                new DynamoDbTablesConfig.TableConfig(PARTITION_KEY_NAME);
-
-        DynamoDbRequest putRequest = UpdateItemRequest.builder().key(new HashMap<>()).build();
-
-        PrimaryKey.build(config, putRequest);
+        PrimaryKey.build(config, createPutItemRequest(itemValues));
     }
 }

@@ -16,18 +16,17 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.connectors.dynamodb;
+package org.apache.flink.streaming.connectors.dynamodb.sink;
 
-/**
- * Exception is thrown when DynamoDb producer failed to write data. Messages in transit might have
- * been lost.
- */
-public class ProducerException extends RuntimeException {
-    public ProducerException(String message) {
-        super(message);
-    }
+import org.assertj.core.api.Assertions;
+import org.junit.Test;
 
-    public ProducerException(String message, Throwable cause) {
-        super(message, cause);
+public class DynamoDbSinkBuilderTest {
+    @Test
+    public void elementConverterOfSinkMustBeSetWhenBuilt() {
+        Assertions.assertThatExceptionOfType(NullPointerException.class)
+                .isThrownBy(() -> DynamoDbSink.builder().setFailOnError(true).build())
+                .withMessageContaining(
+                        "ElementConverter must be not null when initilizing the AsyncSinkBase.");
     }
 }

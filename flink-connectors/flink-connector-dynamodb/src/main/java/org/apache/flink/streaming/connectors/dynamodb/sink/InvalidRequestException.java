@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.connectors.dynamodb.batch;
+package org.apache.flink.streaming.connectors.dynamodb.sink;
 
 /** Exception is thrown if a DynamoDB request was invalid. */
 public class InvalidRequestException extends RuntimeException {

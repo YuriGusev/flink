@@ -16,17 +16,15 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.connectors.dynamodb.batch.key;
+package org.apache.flink.streaming.connectors.dynamodb.sink.key;
 
-import org.apache.flink.streaming.connectors.dynamodb.batch.InvalidRequestException;
 import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
+import org.apache.flink.streaming.connectors.dynamodb.sink.InvalidRequestException;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.DynamoDbRequest;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
 import javax.annotation.Nullable;
 
@@ -87,8 +85,7 @@ public class PrimaryKey {
                 + '}';
     }
 
-    public static PrimaryKey build(
-            DynamoDbTablesConfig.TableConfig config, DynamoDbRequest request) {
+    public static PrimaryKey build(DynamoDbTablesConfig.TableConfig config, WriteRequest request) {
         if (config != null) {
             Map<String, AttributeValue> requestItems = getRequestItems(request);
 
@@ -147,17 +144,17 @@ public class PrimaryKey {
         return builder.toString();
     }
 
-    private static Map<String, AttributeValue> getRequestItems(DynamoDbRequest request) {
-        if (request instanceof PutItemRequest) {
-            if (((PutItemRequest) request).hasItem()) {
-                return ((PutItemRequest) request).item();
+    private static Map<String, AttributeValue> getRequestItems(WriteRequest request) {
+        if (request.putRequest() != null) {
+            if (request.putRequest().hasItem()) {
+                return request.putRequest().item();
             } else {
                 throw new InvalidRequestException(
                         "PutItemRequest " + request.toString() + " does not contain request items");
             }
-        } else if (request instanceof DeleteItemRequest) {
-            if (((DeleteItemRequest) request).hasKey()) {
-                return ((DeleteItemRequest) request).key();
+        } else if (request.deleteRequest() != null) {
+            if (request.deleteRequest().hasKey()) {
+                return request.deleteRequest().key();
             } else {
                 throw new InvalidRequestException(
                         "DeleteItemRequest "
@@ -165,8 +162,7 @@ public class PrimaryKey {
                                 + " does not contain request key");
             }
         } else {
-            throw new InvalidRequestException(
-                    "Not supported request type for request: " + request.toString());
+            throw new InvalidRequestException("Empty write request" + request.toString());
         }
     }
 }
