@@ -27,7 +27,7 @@ import org.apache.flink.streaming.api.functions.source.datagen.RandomGenerator;
 import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
 import org.apache.flink.streaming.connectors.dynamodb.testutils.DynamoDBHelpers;
 import org.apache.flink.streaming.connectors.dynamodb.testutils.DynamoDbContainer;
-import org.apache.flink.streaming.connectors.dynamodb.util.DynamoDbElementConverter;
+import org.apache.flink.streaming.connectors.dynamodb.util.TestDynamoDbElementConverter;
 import org.apache.flink.streaming.connectors.dynamodb.util.TestMapper;
 import org.apache.flink.util.DockerImageVersions;
 
@@ -56,23 +56,23 @@ public class DynamoDbSinkITCase {
     private static final String PARTITION_KEY = "key";
     private static final String SORT_KEY = "sort_key";
     private static DynamoDBHelpers dynamoDBHelpers;
-    private static String tableName;
+    private static String testTableName;
     private static StreamExecutionEnvironment env;
 
     @ClassRule
-    public static final DynamoDbContainer localstack =
+    public static final DynamoDbContainer LOCALSTACK =
             new DynamoDbContainer(DockerImageName.parse(DockerImageVersions.DYNAMODB))
                     .withNetwork(Network.newNetwork())
                     .withNetworkAliases("dynamodb");
 
     @BeforeClass
     public static void init() throws Exception {
-        dynamoDBHelpers = new DynamoDBHelpers(localstack.getHostClient());
+        dynamoDBHelpers = new DynamoDBHelpers(LOCALSTACK.getHostClient());
     }
 
     @Before
     public void setup() {
-        tableName = UUID.randomUUID().toString();
+        testTableName = UUID.randomUUID().toString();
         env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setRestartStrategy(RestartStrategies.noRestart());
         env.setParallelism(2);
@@ -80,7 +80,35 @@ public class DynamoDbSinkITCase {
 
     @Test
     public void testRandomDataSuccessfullyWritten() throws Exception {
-        new Scenario().withTableName(tableName).runScenario();
+        new Scenario().withTableName(testTableName).runScenario();
+    }
+
+    @Test
+    public void nonExistentTableNameShouldResultInFailureWhenFailOnErrorIsTrue() throws Exception {
+        Assertions.assertThatExceptionOfType(JobExecutionException.class)
+                .isThrownBy(
+                        () ->
+                                new Scenario()
+                                        .withTableName("NonExistentTableName")
+                                        .withFailOnError(true)
+                                        .runScenario())
+                .havingCause()
+                .havingCause()
+                .withMessageContaining("Encountered non-recoverable exception");
+    }
+
+    @Test
+    public void nonExistentTableNameShouldResultInFailureWhenFailOnErrorIsFalse() throws Exception {
+        Assertions.assertThatExceptionOfType(JobExecutionException.class)
+                .isThrownBy(
+                        () ->
+                                new Scenario()
+                                        .withTableName("NonExistentTableName")
+                                        .withFailOnError(false)
+                                        .runScenario())
+                .havingCause()
+                .havingCause()
+                .withMessageContaining("Encountered non-recoverable exception");
     }
 
     @Test
@@ -92,7 +120,7 @@ public class DynamoDbSinkITCase {
                                         .withNumberOfElementsToSend(5)
                                         .withSizeOfMessageBytes(500 * 1000)
                                         .withExpectedElements(5)
-                                        .withTableName(tableName)
+                                        .withTableName(testTableName)
                                         .runScenario())
                 .havingCause()
                 .havingCause()
@@ -111,7 +139,7 @@ public class DynamoDbSinkITCase {
                                         .withMaxBatchSizeInBytes(
                                                 600 * 1000 * 1000) // more than max record size
                                         .withExpectedElements(5)
-                                        .withTableName(tableName)
+                                        .withTableName(testTableName)
                                         .runScenario())
                 .havingCause()
                 .havingCause()
@@ -132,7 +160,7 @@ public class DynamoDbSinkITCase {
         private long maxBatchSizeInBytes = 16 * 1000 * 1000;
 
         public void runScenario() throws Exception {
-            dynamoDBHelpers.createTable(tableName, PARTITION_KEY, SORT_KEY);
+            dynamoDBHelpers.createTable(testTableName, PARTITION_KEY, SORT_KEY);
             DataStream<String> stream =
                     env.addSource(
                                     new DataGeneratorSource<String>(
@@ -142,22 +170,21 @@ public class DynamoDbSinkITCase {
                             .returns(String.class);
 
             Properties prop = new Properties();
-            prop.setProperty(AWS_ENDPOINT, localstack.getHostEndpointUrl());
-            prop.setProperty(AWS_ACCESS_KEY_ID, localstack.getAccessKey());
-            prop.setProperty(AWS_SECRET_ACCESS_KEY, localstack.getSecretKey());
-            prop.setProperty(AWS_REGION, localstack.getRegion().toString());
+            prop.setProperty(AWS_ENDPOINT, LOCALSTACK.getHostEndpointUrl());
+            prop.setProperty(AWS_ACCESS_KEY_ID, LOCALSTACK.getAccessKey());
+            prop.setProperty(AWS_SECRET_ACCESS_KEY, LOCALSTACK.getSecretKey());
+            prop.setProperty(AWS_REGION, LOCALSTACK.getRegion().toString());
             prop.setProperty(TRUST_ALL_CERTIFICATES, "true");
             prop.setProperty(HTTP_PROTOCOL_VERSION, "HTTP1_1");
 
             DynamoDbSink<Map<String, AttributeValue>> dynamoDbSink =
                     DynamoDbSink.<Map<String, AttributeValue>>builder()
-                            .setElementConverter(new DynamoDbElementConverter(tableName))
+                            .setElementConverter(new TestDynamoDbElementConverter(tableName))
                             .setMaxTimeInBufferMS(bufferMaxTimeMS)
                             .setMaxInFlightRequests(maxInflightReqs)
                             .setMaxBatchSize(maxBatchSize)
                             .setFailOnError(failOnError)
                             .setMaxBufferedRequests(1000)
-                            .setFailOnError(true)
                             .setDynamoDbTablesConfig(tablesConfig)
                             .setMaxRecordSizeInBytes(maxRecordSizeInBytes)
                             .setMaxBatchSizeInBytes(maxBatchSizeInBytes)

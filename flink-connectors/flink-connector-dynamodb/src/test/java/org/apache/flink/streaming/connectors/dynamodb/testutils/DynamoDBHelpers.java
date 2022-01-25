@@ -18,12 +18,7 @@
 
 package org.apache.flink.streaming.connectors.dynamodb.testutils;
 
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.DeleteTableRequest;
@@ -33,9 +28,7 @@ import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.waiters.DynamoDbAsyncWaiter;
-import software.amazon.awssdk.services.dynamodb.waiters.DynamoDbWaiter;
 
-import java.net.URI;
 import java.util.concurrent.ExecutionException;
 
 /** Helper methods to call dynamoDB service. */
@@ -46,7 +39,8 @@ public class DynamoDBHelpers {
         this.client = hostClient;
     }
 
-    public void createTable(String tableName, String partitionKey, String sortKey) throws ExecutionException, InterruptedException {
+    public void createTable(String tableName, String partitionKey, String sortKey)
+            throws ExecutionException, InterruptedException {
         client.createTable(
                 CreateTableRequest.builder()
                         .tableName(tableName)
