@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.connectors.dynamodb.sink;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.io.ByteArrayInputStream;
@@ -28,6 +29,7 @@ import java.io.ObjectOutputStream;
 import java.util.Collection;
 
 /** A serializer used to serialize a collection of {@link DynamoDbWriteRequest}. */
+@Internal
 public class DynamoDbWriterStateSerializer
         implements SimpleVersionedSerializer<Collection<DynamoDbWriteRequest>> {
 

@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.connectors.dynamodb.sink.key;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
 import org.apache.flink.streaming.connectors.dynamodb.sink.InvalidRequestException;
 
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /** Represents DynamoDB primary key. */
+@Internal
 public class PrimaryKey {
 
     private final String partitionKeyValue;
@@ -85,7 +87,8 @@ public class PrimaryKey {
                 + '}';
     }
 
-    public static PrimaryKey build(DynamoDbTablesConfig.TableConfig config, WriteRequest request) {
+    public static PrimaryKey build(
+            @Nullable DynamoDbTablesConfig.TableConfig config, WriteRequest request) {
         if (config != null) {
             Map<String, AttributeValue> requestItems = getRequestItems(request);
 
@@ -93,7 +96,7 @@ public class PrimaryKey {
                     requestItems.get(config.getPartitionKeyName());
             AttributeValue sortKeyAttributeValue = requestItems.get(config.getSortKeyName());
 
-            if (config.getPartitionKeyName() != null && partitionKeyAttributeValue == null) {
+            if (partitionKeyAttributeValue == null) {
                 throw new InvalidRequestException(
                         "Request "
                                 + request.toString()
@@ -109,11 +112,11 @@ public class PrimaryKey {
                                 + config.getSortKeyName());
             }
 
-            if (partitionKeyAttributeValue != null && sortKeyAttributeValue != null) {
+            if (sortKeyAttributeValue != null) {
                 return new PrimaryKey(
                         getKeyValue(partitionKeyAttributeValue),
                         getKeyValue(sortKeyAttributeValue));
-            } else if (partitionKeyAttributeValue != null) {
+            } else {
                 return new PrimaryKey(getKeyValue(partitionKeyAttributeValue));
             }
         }

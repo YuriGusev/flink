@@ -18,7 +18,7 @@
 
 package org.apache.flink.streaming.connectors.dynamodb.sink;
 
-import org.apache.flink.annotation.Experimental;
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
@@ -113,7 +113,7 @@ public class DynamoDbSink<InputT> extends AsyncSinkBase<InputT, DynamoDbWriteReq
         return new DynamoDbSinkBuilder<>();
     }
 
-    @Experimental
+    @Internal
     @Override
     public SinkWriter<InputT, Void, Collection<DynamoDbWriteRequest>> createWriter(
             InitContext context, List<Collection<DynamoDbWriteRequest>> states) {
@@ -131,7 +131,7 @@ public class DynamoDbSink<InputT> extends AsyncSinkBase<InputT, DynamoDbWriteReq
                 dynamoDbClientProperties);
     }
 
-    @Experimental
+    @Internal
     @Override
     public Optional<SimpleVersionedSerializer<Collection<DynamoDbWriteRequest>>>
             getWriterStateSerializer() {
