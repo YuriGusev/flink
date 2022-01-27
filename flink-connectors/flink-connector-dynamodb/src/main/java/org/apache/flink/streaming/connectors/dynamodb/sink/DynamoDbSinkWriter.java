@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.connectors.dynamodb.sink;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.connector.base.sink.writer.AsyncSinkWriter;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
@@ -52,6 +53,7 @@ import java.util.function.Consumer;
  * SDK 2.x. e.g. the provision of {@code AWS_REGION}, {@code AWS_ACCESS_KEY_ID} and {@code
  * AWS_SECRET_ACCESS_KEY} through environment variables etc.
  */
+@Internal
 class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRequest> {
     private static final Logger LOG = LoggerFactory.getLogger(DynamoDbSinkWriter.class);
 
