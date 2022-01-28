@@ -42,12 +42,8 @@ public class DynamoDbSinkBuilderTest {
         Assert.assertEquals(1, dynamoDbSink.getWriterStateSerializer().get().getVersion());
     }
 
-    @Test
+    @Test(expected = NullPointerException.class)
     public void elementConverterOfSinkMustBeSetWhenBuilt() {
-        Assertions
-                .assertThatExceptionOfType(NullPointerException.class)
-                .isThrownBy(() -> DynamoDbSink.builder().setFailOnError(true).build())
-                .withMessageContaining(
-                        "ElementConverter must be not null when initilizing the AsyncSinkBase.");
+        DynamoDbSink.builder().setFailOnError(true).build();
     }
 }
