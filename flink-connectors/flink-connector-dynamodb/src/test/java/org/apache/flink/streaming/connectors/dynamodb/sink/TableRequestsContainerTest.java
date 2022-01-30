@@ -20,9 +20,10 @@ package org.apache.flink.streaming.connectors.dynamodb.sink;
 
 import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
 
+import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableMap;
+
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutRequest;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
