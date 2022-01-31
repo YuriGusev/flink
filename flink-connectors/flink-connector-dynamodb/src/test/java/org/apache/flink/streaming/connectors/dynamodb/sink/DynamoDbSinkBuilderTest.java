@@ -19,7 +19,6 @@
 package org.apache.flink.streaming.connectors.dynamodb.sink;
 
 import org.assertj.core.api.Assertions;
-import org.junit.Assert;
 import org.junit.Test;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
@@ -32,18 +31,24 @@ public class DynamoDbSinkBuilderTest {
 
     @Test
     public void testCreateDynamoDbSinkBuilder() {
-        DynamoDbSink<Map<String, AttributeValue>> dynamoDbSink = DynamoDbSink
-                .<Map<String, AttributeValue>>builder()
-                .setElementConverter(new TestDynamoDbElementConverter(UUID.randomUUID().toString()))
-                .build();
+        DynamoDbSink<Map<String, AttributeValue>> dynamoDbSink =
+                DynamoDbSink.<Map<String, AttributeValue>>builder()
+                        .setElementConverter(
+                                new TestDynamoDbElementConverter(UUID.randomUUID().toString()))
+                        .build();
 
-        Assert.assertEquals(Optional.empty(), dynamoDbSink.getCommittableSerializer());
-        Assert.assertEquals(Optional.empty(), dynamoDbSink.getGlobalCommittableSerializer());
-        Assert.assertEquals(1, dynamoDbSink.getWriterStateSerializer().get().getVersion());
+        Assertions.assertThat(dynamoDbSink.getCommittableSerializer()).isEqualTo(Optional.empty());
+        Assertions.assertThat(dynamoDbSink.getGlobalCommittableSerializer())
+                .isEqualTo(dynamoDbSink.getGlobalCommittableSerializer());
+        Assertions.assertThat(dynamoDbSink.getWriterStateSerializer().get().getVersion())
+                .isEqualTo(1);
     }
 
-    @Test(expected = NullPointerException.class)
+    @Test
     public void elementConverterOfSinkMustBeSetWhenBuilt() {
-        DynamoDbSink.builder().setFailOnError(true).build();
+        Assertions.assertThatExceptionOfType(NullPointerException.class)
+                .isThrownBy(() -> DynamoDbSink.builder().setFailOnError(true).build())
+                .withMessageContaining(
+                        "ElementConverter must be not null when initilizing the AsyncSinkBase.");
     }
 }
