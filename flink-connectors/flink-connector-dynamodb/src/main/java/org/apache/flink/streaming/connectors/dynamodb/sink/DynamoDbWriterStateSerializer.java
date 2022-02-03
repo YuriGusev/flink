@@ -21,6 +21,8 @@ package org.apache.flink.streaming.connectors.dynamodb.sink;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
+import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -28,10 +30,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Collection;
 
-/** A serializer used to serialize a collection of {@link DynamoDbWriteRequest}. */
+/** A serializer used to serialize a collection of {@link WriteRequest}. */
 @Internal
 public class DynamoDbWriterStateSerializer
-        implements SimpleVersionedSerializer<Collection<DynamoDbWriteRequest>> {
+        implements SimpleVersionedSerializer<Collection<WriteRequest>> {
 
     @Override
     public int getVersion() {
@@ -39,7 +41,7 @@ public class DynamoDbWriterStateSerializer
     }
 
     @Override
-    public byte[] serialize(Collection<DynamoDbWriteRequest> obj) throws IOException {
+    public byte[] serialize(Collection<WriteRequest> obj) throws IOException {
         try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 final ObjectOutputStream out = new ObjectOutputStream(baos)) {
             out.writeObject(obj);
@@ -49,12 +51,10 @@ public class DynamoDbWriterStateSerializer
     }
 
     @Override
-    public Collection<DynamoDbWriteRequest> deserialize(int version, byte[] serialized)
-            throws IOException {
+    public Collection<WriteRequest> deserialize(int version, byte[] serialized) throws IOException {
         try (final ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
                 final ObjectInputStream in = new ObjectInputStream(bais)) {
-            final Collection<DynamoDbWriteRequest> obj =
-                    (Collection<DynamoDbWriteRequest>) in.readObject();
+            final Collection<WriteRequest> obj = (Collection<WriteRequest>) in.readObject();
             return obj;
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);

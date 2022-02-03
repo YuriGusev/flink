@@ -36,7 +36,6 @@ import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -54,7 +53,7 @@ import java.util.function.Consumer;
  * AWS_SECRET_ACCESS_KEY} through environment variables etc.
  */
 @Internal
-class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRequest> {
+class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, WriteRequest> {
     private static final Logger LOG = LoggerFactory.getLogger(DynamoDbSinkWriter.class);
 
     /* A counter for the total number of records that have encountered an error during put */
@@ -65,10 +64,13 @@ class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRe
 
     private final DynamoDbTablesConfig tablesConfig;
     private final DynamoDbAsyncClient client;
+
+    private final String tableName;
+
     private final boolean failOnError;
 
     public DynamoDbSinkWriter(
-            ElementConverter<InputT, DynamoDbWriteRequest> elementConverter,
+            ElementConverter<InputT, WriteRequest> elementConverter,
             Sink.InitContext context,
             int maxBatchSize,
             int maxInFlightRequests,
@@ -76,6 +78,7 @@ class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRe
             long maxBatchSizeInBytes,
             long maxTimeInBufferMS,
             long maxRecordSizeInBytes,
+            String tableName,
             boolean failOnError,
             DynamoDbTablesConfig tablesConfig,
             Properties dynamoDbClientProperties) {
@@ -88,6 +91,7 @@ class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRe
                 maxBatchSizeInBytes,
                 maxTimeInBufferMS,
                 maxRecordSizeInBytes);
+        this.tableName = tableName;
         this.failOnError = failOnError;
         this.tablesConfig = tablesConfig;
         this.metrics = context.metricGroup();
@@ -97,11 +101,13 @@ class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRe
 
     @Override
     protected void submitRequestEntries(
-            List<DynamoDbWriteRequest> requestEntries,
-            Consumer<Collection<DynamoDbWriteRequest>> requestResultConsumer) {
+            List<WriteRequest> requestEntries,
+            Consumer<Collection<WriteRequest>> requestResultConsumer) {
 
         TableRequestsContainer container = new TableRequestsContainer(tablesConfig);
-        requestEntries.forEach(container::put);
+        for (WriteRequest writeRequest : requestEntries) {
+            container.put(tableName, writeRequest);
+        }
 
         CompletableFuture<BatchWriteItemResponse> future =
                 client.batchWriteItem(
@@ -123,15 +129,8 @@ class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRe
     }
 
     private void handlePartiallyUnprocessedRequest(
-            BatchWriteItemResponse response,
-            Consumer<Collection<DynamoDbWriteRequest>> requestResult) {
-        List<DynamoDbWriteRequest> unprocessed = new ArrayList<>();
-
-        for (String tableName : response.unprocessedItems().keySet()) {
-            for (WriteRequest request : response.unprocessedItems().get(tableName)) {
-                unprocessed.add(new DynamoDbWriteRequest(tableName, request));
-            }
-        }
+            BatchWriteItemResponse response, Consumer<Collection<WriteRequest>> requestResult) {
+        List<WriteRequest> unprocessed = response.unprocessedItems().get(tableName);
 
         LOG.warn("DynamoDB Sink failed to persist {} entries", unprocessed.size());
         numRecordsOutErrorsCounter.inc(unprocessed.size());
@@ -141,8 +140,8 @@ class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRe
 
     private void handleFullyFailedRequest(
             Throwable err,
-            List<DynamoDbWriteRequest> requestEntries,
-            Consumer<Collection<DynamoDbWriteRequest>> requestResult) {
+            List<WriteRequest> requestEntries,
+            Consumer<Collection<WriteRequest>> requestResult) {
         LOG.warn("DynamoDB Sink failed to persist {} entries", requestEntries.size(), err);
         numRecordsOutErrorsCounter.inc(requestEntries.size());
 
@@ -160,9 +159,9 @@ class DynamoDbSinkWriter<InputT> extends AsyncSinkWriter<InputT, DynamoDbWriteRe
     }
 
     @Override
-    protected long getSizeInBytes(DynamoDbWriteRequest requestEntry) {
+    protected long getSizeInBytes(WriteRequest requestEntry) {
         // dynamodb calculates item size as a sum of all attributes and all values, but doing so on
         // every operation may be too expensive, so this is just an estimate
-        return requestEntry.getWriteRequest().toString().getBytes(StandardCharsets.UTF_8).length;
+        return requestEntry.toString().getBytes(StandardCharsets.UTF_8).length;
     }
 }

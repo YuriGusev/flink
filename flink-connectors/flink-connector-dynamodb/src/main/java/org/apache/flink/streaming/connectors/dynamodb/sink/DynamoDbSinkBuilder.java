@@ -22,6 +22,8 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.connector.base.sink.AsyncSinkBaseBuilder;
 import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
 
+import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
+
 import java.util.Optional;
 import java.util.Properties;
 
@@ -69,7 +71,7 @@ import java.util.Properties;
  */
 @PublicEvolving
 public class DynamoDbSinkBuilder<InputT>
-        extends AsyncSinkBaseBuilder<InputT, DynamoDbWriteRequest, DynamoDbSinkBuilder<InputT>> {
+        extends AsyncSinkBaseBuilder<InputT, WriteRequest, DynamoDbSinkBuilder<InputT>> {
 
     private static final int DEFAULT_MAX_BATCH_SIZE = 25;
     private static final int DEFAULT_MAX_IN_FLIGHT_REQUESTS = 50;
@@ -80,6 +82,8 @@ public class DynamoDbSinkBuilder<InputT>
     private static final boolean DEFAULT_FAIL_ON_ERROR = false;
 
     private boolean failOnError;
+    private String tableName;
+    private ItemConverter<InputT> itemConverter;
     private DynamoDbTablesConfig dynamoDbTablesConfig;
     private Properties dynamodbClientProperties;
 
@@ -100,15 +104,25 @@ public class DynamoDbSinkBuilder<InputT>
         return this;
     }
 
+    public DynamoDbSinkBuilder<InputT> setTableName(String tableName) {
+        this.tableName = tableName;
+        return this;
+    }
+
     public DynamoDbSinkBuilder<InputT> setFailOnError(boolean failOnError) {
         this.failOnError = failOnError;
+        return this;
+    }
+
+    public DynamoDbSinkBuilder<InputT> setItemConverter(ItemConverter<InputT> itemConverter) {
+        this.itemConverter = itemConverter;
         return this;
     }
 
     @Override
     public DynamoDbSink<InputT> build() {
         return new DynamoDbSink<>(
-                getElementConverter(),
+                itemConverter,
                 Optional.ofNullable(getMaxBatchSize()).orElse(DEFAULT_MAX_BATCH_SIZE),
                 Optional.ofNullable(getMaxInFlightRequests())
                         .orElse(DEFAULT_MAX_IN_FLIGHT_REQUESTS),
@@ -117,6 +131,7 @@ public class DynamoDbSinkBuilder<InputT>
                 Optional.ofNullable(getMaxTimeInBufferMS()).orElse(DEFAULT_MAX_TIME_IN_BUFFER_MS),
                 Optional.ofNullable(getMaxRecordSizeInBytes()).orElse(DEFAULT_MAX_RECORD_SIZE_IN_B),
                 Optional.of(failOnError).orElse(DEFAULT_FAIL_ON_ERROR),
+                tableName,
                 Optional.ofNullable(dynamoDbTablesConfig).orElse(new DynamoDbTablesConfig()),
                 Optional.ofNullable(dynamodbClientProperties).orElse(new Properties()));
     }

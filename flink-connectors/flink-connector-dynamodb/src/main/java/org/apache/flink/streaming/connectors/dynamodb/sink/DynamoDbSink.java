@@ -22,15 +22,17 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
-import org.apache.flink.connector.base.sink.writer.ElementConverter;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.streaming.connectors.dynamodb.config.DynamoDbTablesConfig;
+
+import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -71,14 +73,15 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @param <InputT> Type of the elements handled by this sink
  */
 @PublicEvolving
-public class DynamoDbSink<InputT> extends AsyncSinkBase<InputT, DynamoDbWriteRequest> {
+public class DynamoDbSink<InputT> extends AsyncSinkBase<InputT, WriteRequest> {
 
     private final Properties dynamoDbClientProperties;
     private final DynamoDbTablesConfig dynamoDbTablesConfig;
     private final boolean failOnError;
+    private final String tableName;
 
     protected DynamoDbSink(
-            ElementConverter<InputT, DynamoDbWriteRequest> elementConverter,
+            ItemConverter<InputT> itemConverter,
             int maxBatchSize,
             int maxInFlightRequests,
             int maxBufferedRequests,
@@ -86,10 +89,13 @@ public class DynamoDbSink<InputT> extends AsyncSinkBase<InputT, DynamoDbWriteReq
             long maxTimeInBufferMS,
             long maxRecordSizeInBytes,
             boolean failOnError,
+            String tableName,
             DynamoDbTablesConfig dynamoDbTablesConfig,
             Properties dynamoDbClientProperties) {
         super(
-                elementConverter,
+                new DynamoDbElementConverter.Builder<InputT>()
+                        .setItemConverter(itemConverter)
+                        .build(),
                 maxBatchSize,
                 maxInFlightRequests,
                 maxBufferedRequests,
@@ -98,6 +104,14 @@ public class DynamoDbSink<InputT> extends AsyncSinkBase<InputT, DynamoDbWriteReq
                 maxRecordSizeInBytes);
         checkNotNull(dynamoDbTablesConfig, "Missing dynamoDbTablesConfig");
         checkNotNull(dynamoDbClientProperties, "Missing dynamoDbClientProperties");
+        checkNotNull(itemConverter, "Missing ItemConverter");
+        this.tableName =
+                checkNotNull(
+                        tableName,
+                        "The table name must not be null when initializing the DynamoDb Sink.");
+        checkArgument(
+                !this.tableName.isEmpty(),
+                "The table name must be set when initializing the DynamoDb Sink.");
         this.failOnError = failOnError;
         this.dynamoDbTablesConfig = dynamoDbTablesConfig;
         this.dynamoDbClientProperties = dynamoDbClientProperties;
@@ -115,8 +129,8 @@ public class DynamoDbSink<InputT> extends AsyncSinkBase<InputT, DynamoDbWriteReq
 
     @Internal
     @Override
-    public SinkWriter<InputT, Void, Collection<DynamoDbWriteRequest>> createWriter(
-            InitContext context, List<Collection<DynamoDbWriteRequest>> states) {
+    public SinkWriter<InputT, Void, Collection<WriteRequest>> createWriter(
+            InitContext context, List<Collection<WriteRequest>> states) {
         return new DynamoDbSinkWriter<>(
                 getElementConverter(),
                 context,
@@ -126,6 +140,7 @@ public class DynamoDbSink<InputT> extends AsyncSinkBase<InputT, DynamoDbWriteReq
                 getMaxBatchSizeInBytes(),
                 getMaxTimeInBufferMS(),
                 getMaxRecordSizeInBytes(),
+                tableName,
                 failOnError,
                 dynamoDbTablesConfig,
                 dynamoDbClientProperties);
@@ -133,7 +148,7 @@ public class DynamoDbSink<InputT> extends AsyncSinkBase<InputT, DynamoDbWriteReq
 
     @Internal
     @Override
-    public Optional<SimpleVersionedSerializer<Collection<DynamoDbWriteRequest>>>
+    public Optional<SimpleVersionedSerializer<Collection<WriteRequest>>>
             getWriterStateSerializer() {
         return Optional.of(new DynamoDbWriterStateSerializer());
     }

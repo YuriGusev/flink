@@ -40,9 +40,8 @@ public class DynamoDbWriterStateSerializerTest {
 
     @Test
     public void testStateSerDe() throws IOException {
-        final Collection<DynamoDbWriteRequest> state = new ArrayList<>();
-        DynamoDbWriteRequest dynamoDbWriteRequest =
-                new DynamoDbWriteRequest("Table", WriteRequest.builder().build());
+        final Collection<WriteRequest> state = new ArrayList<>();
+        WriteRequest dynamoDbWriteRequest = WriteRequest.builder().build();
         state.add(dynamoDbWriteRequest);
         byte[] serialize = SERIALIZER.serialize(state);
         Assertions.assertThat(state).isEqualTo(SERIALIZER.deserialize(1, serialize));

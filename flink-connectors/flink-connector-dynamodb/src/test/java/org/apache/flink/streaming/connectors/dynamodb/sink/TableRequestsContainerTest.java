@@ -49,6 +49,7 @@ public class TableRequestsContainerTest {
     public void testDeduplicatedOnCompositeKey() {
         new Scenario()
                 .withTableConfig("tableOne", "pk", "sk")
+                .withTableName("tableOne")
                 .witItem("tableOne", ImmutableMap.of("pk", "1", "sk", "1"))
                 // to be deduplicated
                 .witItem("tableOne", ImmutableMap.of("pk", "1", "sk", "1"))
@@ -62,6 +63,7 @@ public class TableRequestsContainerTest {
     public void testDeduplicatedOnPartitionKey() {
         new Scenario()
                 .withTableConfig("tableOne", "pk")
+                .withTableName("tableOne")
                 .witItem("tableOne", ImmutableMap.of("pk", "1", "sk", "1"))
                 // to be deduplicated
                 .witItem("tableOne", ImmutableMap.of("pk", "1", "sk", "1"))
@@ -72,29 +74,18 @@ public class TableRequestsContainerTest {
                 .runScenario();
     }
 
-    @Test
-    public void testNotDeduplicatedWhenOnDifferentTable() {
-        new Scenario()
-                .withTableConfig("tableOne", "pk", "sk")
-                .withTableConfig("tableTwo", "pk", "sk")
-                .witItem("tableOne", ImmutableMap.of("pk", "1", "sk", "1"))
-                .witItem("tableOne", ImmutableMap.of("pk", "2", "sk", "1"))
-                .witItem("tableTwo", ImmutableMap.of("pk", "1", "sk", "1"))
-                .withDescription(
-                        "requests should not be deduplecated if belong to different tables")
-                .withExpectedNumberOfItems(3)
-                .runScenario();
-    }
-
     private class Scenario {
         private String description;
+        private String tableName;
         private int expectedNumberOfItems;
         private final DynamoDbTablesConfig tablesConfig = new DynamoDbTablesConfig();
-        private final List<DynamoDbWriteRequest> requests = new ArrayList<>();
+        private final List<WriteRequest> requests = new ArrayList<>();
 
         public void runScenario() {
             TableRequestsContainer container = new TableRequestsContainer(tablesConfig);
-            requests.forEach(container::put);
+            for (WriteRequest writeRequest : requests) {
+                container.put(tableName, writeRequest);
+            }
 
             int numberOfItemsInContainer =
                     container.getRequestItems().keySet().stream()
@@ -107,8 +98,7 @@ public class TableRequestsContainerTest {
                     .isEqualTo(expectedNumberOfItems);
         }
 
-        public DynamoDbWriteRequest createPutItemRequest(
-                String tableName, Map<String, String> attributes) {
+        public WriteRequest createPutItemRequest(String tableName, Map<String, String> attributes) {
             Map<String, AttributeValue> items =
                     attributes.entrySet().stream()
                             .collect(
@@ -116,11 +106,9 @@ public class TableRequestsContainerTest {
                                             Map.Entry::getKey,
                                             e -> AttributeValue.builder().s(e.getValue()).build()));
 
-            return new DynamoDbWriteRequest(
-                    tableName,
-                    WriteRequest.builder()
-                            .putRequest(PutRequest.builder().item(items).build())
-                            .build());
+            return WriteRequest.builder()
+                    .putRequest(PutRequest.builder().item(items).build())
+                    .build();
         }
 
         public Scenario withTableConfig(
@@ -131,6 +119,11 @@ public class TableRequestsContainerTest {
 
         public Scenario withTableConfig(String tableName, String partitionKeyName) {
             this.tablesConfig.addTableConfig(tableName, partitionKeyName);
+            return this;
+        }
+
+        public Scenario withTableName(String tableName) {
+            this.tableName = tableName;
             return this;
         }
 

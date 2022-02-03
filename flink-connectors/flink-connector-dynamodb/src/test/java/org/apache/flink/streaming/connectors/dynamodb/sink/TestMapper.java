@@ -20,13 +20,11 @@ package org.apache.flink.streaming.connectors.dynamodb.sink;
 
 import org.apache.flink.api.common.functions.RichMapFunction;
 
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-
 import java.util.HashMap;
 import java.util.Map;
 
 /** A test implementation of a mapper to be used in the DynamoDb sink tests. */
-public class TestMapper extends RichMapFunction<String, Map<String, AttributeValue>> {
+public class TestMapper extends RichMapFunction<String, Map<String, Object>> {
 
     private final String partitionKey;
     private final String sortKey;
@@ -37,10 +35,10 @@ public class TestMapper extends RichMapFunction<String, Map<String, AttributeVal
     }
 
     @Override
-    public Map<String, AttributeValue> map(String data) throws Exception {
-        final Map<String, AttributeValue> item = new HashMap<>();
-        item.put(partitionKey, AttributeValue.builder().s(data).build());
-        item.put(sortKey, AttributeValue.builder().s(data).build());
+    public Map<String, Object> map(String data) throws Exception {
+        final Map<String, Object> item = new HashMap<>();
+        item.put(partitionKey, data);
+        item.put(sortKey, data);
         return item;
     }
 }

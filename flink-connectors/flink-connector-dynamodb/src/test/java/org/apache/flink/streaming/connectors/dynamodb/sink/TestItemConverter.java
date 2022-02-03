@@ -18,27 +18,13 @@
 
 package org.apache.flink.streaming.connectors.dynamodb.sink;
 
-import org.assertj.core.api.Assertions;
-import org.junit.Test;
-
 import java.util.Map;
-import java.util.Optional;
 
-/** Tests for {@link DynamoDbSinkBuilder}. */
-public class DynamoDbSinkBuilderTest {
+/** A test implementation of {@link ItemConverter} to be used in the DynamoDb sink tests. */
+public class TestItemConverter implements ItemConverter<Map<String, Object>> {
 
-    @Test
-    public void testCreateDynamoDbSinkBuilder() {
-        DynamoDbSink<Map<String, Object>> dynamoDbSink =
-                DynamoDbSink.<Map<String, Object>>builder()
-                        .setItemConverter(new TestItemConverter())
-                        .setTableName("tableName")
-                        .build();
-
-        Assertions.assertThat(dynamoDbSink.getCommittableSerializer()).isEqualTo(Optional.empty());
-        Assertions.assertThat(dynamoDbSink.getGlobalCommittableSerializer())
-                .isEqualTo(dynamoDbSink.getGlobalCommittableSerializer());
-        Assertions.assertThat(dynamoDbSink.getWriterStateSerializer().get().getVersion())
-                .isEqualTo(1);
+    @Override
+    public Map<String, Object> apply(Map<String, Object> element) {
+        return element;
     }
 }

@@ -48,14 +48,12 @@ class TableRequestsContainer {
         this.container = new LinkedHashMap<>();
     }
 
-    public void put(DynamoDbWriteRequest request) {
+    public void put(String tableName, WriteRequest writeRequest) {
         Map<PrimaryKey, WriteRequest> tableRequests =
-                container.computeIfAbsent(request.getTableName(), k -> new HashMap<>());
+                container.computeIfAbsent(tableName, k -> new HashMap<>());
         tableRequests.put(
-                PrimaryKey.build(
-                        tablesConfig.getTableConfig(request.getTableName()),
-                        request.getWriteRequest()),
-                request.getWriteRequest());
+                PrimaryKey.build(tablesConfig.getTableConfig(tableName), writeRequest),
+                writeRequest);
     }
 
     /** Reduces requests de-duplicated by table name and primary key to table write requests map. */

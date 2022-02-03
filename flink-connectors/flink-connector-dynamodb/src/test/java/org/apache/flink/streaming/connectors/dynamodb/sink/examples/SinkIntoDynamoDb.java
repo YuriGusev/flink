@@ -24,7 +24,6 @@ import org.apache.flink.connector.base.sink.writer.ElementConverter;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.dynamodb.sink.DynamoDbSink;
-import org.apache.flink.streaming.connectors.dynamodb.sink.DynamoDbWriteRequest;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -68,18 +67,15 @@ public class SinkIntoDynamoDb {
         env.execute("DynamoDb Async Sink Example Program");
     }
 
-    private static class DummyElementConverter
-            implements ElementConverter<String, DynamoDbWriteRequest> {
+    private static class DummyElementConverter implements ElementConverter<String, WriteRequest> {
 
         @Override
-        public DynamoDbWriteRequest apply(String element, SinkWriter.Context context) {
+        public WriteRequest apply(String element, SinkWriter.Context context) {
             final Map<String, AttributeValue> map = new HashMap<>();
             map.put("your-key", AttributeValue.builder().s(element).build());
-            return new DynamoDbWriteRequest(
-                    "your-table-name",
-                    WriteRequest.builder()
-                            .putRequest(PutRequest.builder().item(map).build())
-                            .build());
+            return WriteRequest.builder()
+                    .putRequest(PutRequest.builder().item(map).build())
+                    .build();
         }
     }
 }
